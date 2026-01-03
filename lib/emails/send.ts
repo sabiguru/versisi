@@ -1,16 +1,15 @@
 /**
  * Email Sending Service
  *
- * To enable email sending:
- * 1. Choose an email service (Resend, SendGrid, Postmark, AWS SES)
- * 2. Install the package: npm install resend
- * 3. Add API key to .env: EMAIL_API_KEY=your_key
- * 4. Uncomment the code below and update the service configuration
+ * Using Resend for email delivery
+ * Add RESEND_API_KEY to your .env file
  */
 
-// Example with Resend (recommended for Next.js):
-// import { Resend } from 'resend';
-// const resend = new Resend(process.env.RESEND_API_KEY);
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 export interface EmailOptions {
   to: string | string[];
@@ -20,16 +19,13 @@ export interface EmailOptions {
 }
 
 /**
- * Send an email
- *
- * Current implementation: Logs to console (development mode)
- * Production: Uncomment email service code below
+ * Send an email using Resend
  */
 export async function sendEmail(options: EmailOptions) {
-  const from = process.env.EMAIL_FROM || "noreply@sygnoff.com";
+  const from = process.env.EMAIL_FROM || "Versisi <noreply@versisi.com>";
 
   // DEVELOPMENT MODE: Log email to console
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" || !resend) {
     console.log("\n📧 Email would be sent:");
     console.log("From:", from);
     console.log("To:", options.to);
@@ -40,10 +36,8 @@ export async function sendEmail(options: EmailOptions) {
     return { success: true, id: "dev-email-" + Date.now() };
   }
 
-  // PRODUCTION MODE: Uncomment to enable email sending
-  /*
+  // PRODUCTION MODE: Send via Resend
   try {
-    // Example with Resend:
     const data = await resend.emails.send({
       from,
       to: Array.isArray(options.to) ? options.to : [options.to],
@@ -57,11 +51,6 @@ export async function sendEmail(options: EmailOptions) {
     console.error("Email sending failed:", error);
     throw new Error("Failed to send email");
   }
-  */
-
-  // For now, just log in production too
-  console.warn("Email sending not configured. Email would be sent to:", options.to);
-  return { success: false, id: null };
 }
 
 /**

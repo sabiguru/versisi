@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { sendEmail } from "@/lib/emails/send";
+import { otpEmail } from "@/lib/emails/otp-email";
 
 const sendOtpSchema = z.object({
   email: z.string().email(),
@@ -61,13 +63,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // TODO: Send email with OTP
-    // For now, log to console (in production, use a service like Resend, SendGrid, etc.)
-    console.log(`OTP for ${email}: ${token}`);
-    console.log(`Expires at: ${expires.toISOString()}`);
+    // Send OTP email
+    const emailTemplate = otpEmail({ email, token, isSignup: !!isSignup });
 
-    // In development, you might want to return the OTP in the response
-    // REMOVE THIS IN PRODUCTION
+    try {
+      await sendEmail({
+        to: email,
+        ...emailTemplate,
+      });
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError);
+      // Continue even if email fails - OTP is still valid
+    }
+
+    // In development, return the OTP in the response for testing
     if (process.env.NODE_ENV === "development") {
       return NextResponse.json({
         message: "OTP sent successfully",
