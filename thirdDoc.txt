@@ -1,0 +1,291 @@
+Below is the **canonical Agreement Snapshot JSON schema** + **canonicalization + hashing rules** you should add to the build brief. This ensures signatures are stable and verifiable regardless of UI, exports (PDF/DOCX/XLSX), or later code changes.
+
+You can paste this directly into Claude along with the previous brief.
+
+---
+
+# Addendum: Canonical Agreement Snapshot Schema + Hashing
+
+## Goal
+
+When someone signs an approval, the system must store a **tamper-evident hash** of exactly what they approved. That requires:
+
+1. A **canonical JSON snapshot** of the agreement content (proposal or version)
+2. A deterministic **canonicalization** process (stable ordering, normalized strings)
+3. A cryptographic **hash** computed over the canonical payload + relevant metadata
+4. Storage of both the snapshot and the hash on signature
+
+---
+
+## A) Canonical JSON Snapshot (v1)
+
+### Snapshot object
+
+```json
+{
+  "schemaVersion": "agreement_snapshot_v1",
+  "project": {
+    "id": "uuid",
+    "name": "string",
+    "clientOrgName": "string|null"
+  },
+  "agreement": {
+    "type": "PROPOSAL|SCOPE_VERSION",
+    "id": "uuid",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "label": "v1.0"
+    },
+    "baseVersion": {
+      "id": "uuid|null",
+      "label": "v1.0|null"
+    },
+    "meta": {
+      "title": "string|null",
+      "changeNote": "string",
+      "rationale": "string",
+      "impact": {
+        "timeline": "NONE|MINOR|MAJOR",
+        "cost": "NONE|MINOR|MAJOR",
+        "risk": "LOW|MED|HIGH"
+      },
+      "requestedByParty": "DEV|CLIENT",
+      "requestedByName": "string|null"
+    },
+    "scope": {
+      "sections": [
+        {
+          "stableId": "string",
+          "title": "string",
+          "orderIndex": 0,
+          "items": [
+            {
+              "stableId": "string",
+              "title": "string",
+              "description": "string",
+              "acceptanceCriteria": "string|null",
+              "priority": "MUST|SHOULD|COULD",
+              "orderIndex": 0
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Key principles
+
+* **Only include what is being approved**.
+* Do NOT include comments, audit logs, view counts, UI-only fields.
+* Include only the agreement’s scope + meta needed to interpret it.
+
+---
+
+## B) Stable IDs (critical)
+
+You must include stable identifiers for items and sections so the snapshot is meaningful.
+
+### Stable ID format rules
+
+* For **ScopeVersion snapshots**: stableId may simply be the `ScopeSection.id` and `ScopeItem.id` UUIDs as strings.
+* For **Proposal snapshots**: stableId must be consistent even if the proposal item is derived from a base scope item.
+
+Recommended approach:
+
+* For proposal sections/items:
+
+  * If `sourceScopeItemId` exists: `stableId = "src:" + sourceScopeItemId`
+  * Else: `stableId = "new:" + proposalItemId`
+* Same for sections.
+
+This makes diffs and signature verification more interpretable.
+
+---
+
+## C) Canonicalization Rules (deterministic)
+
+Before hashing, convert the snapshot into a **canonical JSON string**.
+
+### Canonicalization steps
+
+1. **Strip all null optional fields?**
+
+   * Prefer: KEEP nulls only where schema explicitly allows, but normalize absent vs null consistently.
+   * Simpler: include keys always, using null for missing optional values.
+
+2. **Normalize strings**
+
+   * Convert CRLF → LF
+   * Trim trailing whitespace on each line
+   * Collapse multiple spaces? (NO — don’t be too clever; only normalize line endings and trim ends)
+   * Ensure Unicode normalization NFC
+
+3. **Ensure stable ordering**
+
+   * Sort object keys lexicographically during serialization (canonical JSON).
+   * Ensure arrays are in stable order:
+
+     * `sections` sorted by `orderIndex` asc, then `stableId`
+     * `items` sorted by `orderIndex` asc, then `stableId`
+
+4. **Numeric types**
+
+   * Keep integers as integers (orderIndex, major/minor).
+
+### Canonical JSON serialization
+
+Use RFC 8785 (JSON Canonicalization Scheme) if available, or implement:
+
+* recursive key sorting
+* consistent escaping
+* no insignificant whitespace
+
+---
+
+## D) Hash computation
+
+### Hash payload
+
+Compute SHA-256 over:
+
+* `canonicalSnapshotJsonString`
+
+Optionally include a second layer that binds signature to recipient identity:
+
+### Signature hash payload (recommended)
+
+Compute SHA-256 over a canonical object:
+
+```json
+{
+  "schemaVersion": "signature_payload_v1",
+  "snapshotHash": "hex-string",
+  "approvalRequestId": "uuid",
+  "approvalRecipientId": "uuid",
+  "signing": {
+    "typedName": "string",
+    "email": "string",
+    "party": "DEV|CLIENT"
+  }
+}
+```
+
+Then:
+
+* `signatureHash = sha256(canonicalize(signaturePayload))`
+
+Store:
+
+* `agreementSnapshotJson` (original snapshot object)
+* `snapshotHash`
+* `signatureHash`
+
+This ensures a signature can’t be “replayed” for a different recipient or approval request.
+
+---
+
+## E) Verification function (must implement)
+
+Implement a function:
+
+* `verifySignature(signatureId): boolean`
+
+Steps:
+
+1. Load stored `agreementSnapshotJson`
+2. Re-canonicalize → compute `snapshotHash2`
+3. Compare `snapshotHash2 == stored snapshotHash`
+4. Rebuild `signaturePayload` from:
+
+   * stored snapshotHash
+   * stored approvalRequestId/recipientId
+   * stored signing metadata (typedName/email/party)
+5. Canonicalize → compute `signatureHash2`
+6. Compare to stored `signatureHash`
+7. Return true if both match
+
+---
+
+## F) When to generate the snapshot
+
+### For signing proposals (approval time)
+
+At signing time:
+
+* Generate snapshot from the **current proposal content** (ProposalSections/Items + meta).
+* Store it in `Signature.agreementSnapshotJson`.
+
+### For signing scope versions (optional)
+
+If you allow signing after conversion to ScopeVersion (not recommended for MVP), generate from ScopeVersion tables.
+
+MVP recommendation:
+
+* Sign proposal snapshot → then convert to immutable ScopeVersion.
+* ScopeVersion can also store the final `snapshotHash` as an integrity checksum:
+
+  * `ScopeVersion.snapshotHash` (optional column)
+
+---
+
+## G) Snapshot generator functions (Claude should implement)
+
+### `buildAgreementSnapshotFromProposal(proposalId)`
+
+Returns snapshot object in the schema above:
+
+* project info
+* agreement meta
+* sections/items
+
+### `buildAgreementSnapshotFromScopeVersion(versionId)`
+
+Same structure but `agreement.type = "SCOPE_VERSION"`
+
+### `canonicalizeJson(obj)`
+
+Implements deterministic key ordering + normalization + stable array ordering
+
+### `hashSnapshot(snapshotObj)`
+
+Returns snapshotHash hex
+
+### `hashSignaturePayload(...)`
+
+Returns signatureHash hex
+
+---
+
+## H) Prisma additions for hashing
+
+Add fields to `Signature` model:
+
+* `snapshotHash` string
+* `signatureHash` string
+* `agreementSnapshotJson` jsonb
+
+Optional:
+Add to `ScopeVersion`:
+
+* `snapshotHash` string nullable
+
+---
+
+## I) Acceptance criteria for hashing
+
+* If any scope text changes after signing (should not happen for approved versions), verification fails.
+* Exporting to PDF/DOCX/XLSX does not affect verification because hash is based on canonical JSON, not rendered output.
+* Two different servers generate the same hash for the same agreement content.
+
+---
+
+## Confidence level
+
+**0.9** that this hashing approach will be stable and robust for your use case.
+The one thing to be careful about is **string normalization** (line endings + whitespace). Keep it minimal to avoid surprising users.
+
+If you want, I can also add a “canonical diff summary schema” so the PDF “changes since v1.2” section is generated deterministically too.
+

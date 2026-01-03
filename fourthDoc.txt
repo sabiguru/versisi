@@ -1,0 +1,334 @@
+Below is the **Canonical Diff Summary Schema + deterministic generation rules** you can add to the build brief. This lets you:
+
+* Generate “What changed since vX.Y” in a consistent way (UI + PDF + DOCX + XLSX)
+* Hash/verify the diff output if you ever need to
+* Avoid flaky diffs caused by ordering, whitespace, or “move vs modify” ambiguity
+
+---
+
+# Addendum: Canonical Diff Summary Schema + Rules
+
+## Goal
+
+Given a **base snapshot** (ScopeVersion) and a **target snapshot** (Proposal or ScopeVersion), compute a deterministic diff summary that is:
+
+* Stable across environments
+* Independent of UI rendering
+* Suitable for exports (PDF/DOCX/XLSX)
+* Interpretable by humans
+
+This is a summary, not a full patch format.
+
+---
+
+## A) Canonical Diff Summary JSON (v1)
+
+```json
+{
+  "schemaVersion": "diff_summary_v1",
+  "base": {
+    "agreementId": "uuid",
+    "type": "SCOPE_VERSION|PROPOSAL",
+    "versionLabel": "v1.2"
+  },
+  "target": {
+    "agreementId": "uuid",
+    "type": "SCOPE_VERSION|PROPOSAL",
+    "versionLabel": "v1.3"
+  },
+  "stats": {
+    "sectionsAdded": 0,
+    "sectionsRemoved": 0,
+    "sectionsRenamed": 0,
+    "sectionsMoved": 0,
+    "itemsAdded": 0,
+    "itemsRemoved": 0,
+    "itemsModified": 0,
+    "itemsMoved": 0
+  },
+  "changes": [
+    {
+      "changeId": "string",
+      "type": "ADD|REMOVE|MODIFY|MOVE|RENAME",
+      "entityType": "SECTION|ITEM",
+      "stableId": "string",
+      "path": {
+        "from": { "sectionStableId": "string|null", "orderIndex": 0 },
+        "to": { "sectionStableId": "string|null", "orderIndex": 0 }
+      },
+      "summary": "string",
+      "details": {
+        "fields": [
+          {
+            "field": "TITLE|DESCRIPTION|ACCEPTANCE|PRIORITY|SECTION_TITLE",
+            "from": "string|null",
+            "to": "string|null"
+          }
+        ],
+        "fromSectionTitle": "string|null",
+        "toSectionTitle": "string|null"
+      }
+    }
+  ],
+  "renderHints": {
+    "grouping": "BY_SECTION",
+    "sortOrder": "TYPE_THEN_PATH"
+  }
+}
+```
+
+### Notes
+
+* `changes[]` is an **ordered** list (canonical order rules below).
+* `changeId` is deterministic (derived from stableId + type + hashes of fields). It is not a DB id.
+* `path` is included for items and sections (moves), even if null.
+* `details.fields[]` is only populated for MODIFY/RENAME.
+
+---
+
+## B) Identity & Matching Rules (stableId)
+
+Diff correctness depends on identity matching.
+
+### StableId rules (must match snapshot rules)
+
+Use the same stable IDs from the Agreement Snapshot schema:
+
+* Sections:
+
+  * if derived from base: `stableId = "src:" + sourceScopeSectionId`
+  * else: `stableId = "new:" + proposalSectionId` (or UUID for ScopeVersion sections)
+
+* Items:
+
+  * if derived from base: `stableId = "src:" + sourceScopeItemId`
+  * else: `stableId = "new:" + proposalItemId`
+
+This ensures base/target alignment is deterministic.
+
+---
+
+## C) Classification Rules (what counts as add/remove/modify/move/rename)
+
+### SECTION changes
+
+For each section stableId:
+
+* **ADD (SECTION)**: present in target, not in base
+* **REMOVE (SECTION)**: present in base, not in target
+* **RENAME (SECTION)**: stableId exists in both, but `title` differs (after normalization)
+* **MOVE (SECTION)**: stableId exists in both, but `orderIndex` differs
+
+A section can have both RENAME and MOVE; represent them as **two separate change entries** (RENAME then MOVE) to keep it explicit and sortable.
+
+### ITEM changes
+
+For each item stableId:
+
+* **ADD (ITEM)**: present in target, not in base
+* **REMOVE (ITEM)**: present in base, not in target
+* **MODIFY (ITEM)**: stableId in both, but any of:
+
+  * title
+  * description
+  * acceptanceCriteria
+  * priority
+    differs after normalization
+* **MOVE (ITEM)**: stableId in both, but any of:
+
+  * sectionStableId differs, OR
+  * orderIndex differs
+
+If an item is modified and moved, create **two separate entries**: MODIFY then MOVE.
+
+---
+
+## D) Normalization Rules for Diff Comparisons
+
+Use minimal normalization (same spirit as signature snapshot):
+
+* Convert CRLF → LF
+* Trim trailing whitespace on each line
+* Trim leading/trailing whitespace overall
+* Unicode normalize NFC
+* Do NOT collapse internal spaces (avoid surprising diffs)
+
+This prevents “phantom modifications” due to line endings.
+
+---
+
+## E) Canonical Ordering Rules (critical)
+
+The diff must output changes in a deterministic order.
+
+### 1) Canonical type order
+
+Use this fixed order:
+
+1. SECTION: REMOVE
+2. SECTION: ADD
+3. SECTION: RENAME
+4. SECTION: MOVE
+5. ITEM: REMOVE
+6. ITEM: ADD
+7. ITEM: MODIFY
+8. ITEM: MOVE
+
+Rationale: removals first, then additions, then modifications/moves.
+
+### 2) Within the same bucket, sort by path then stableId
+
+Define a sort key per change entry:
+
+* Primary: `entityType` + `type` bucket index above
+* Secondary: `path.from.sectionStableId` (nulls last), then `path.to.sectionStableId` (nulls last)
+* Tertiary: `path.from.orderIndex` then `path.to.orderIndex`
+* Quaternary: `stableId` lexicographically
+* Final tie-breaker: deterministic hash of `summary`
+
+This makes exports stable.
+
+---
+
+## F) Deterministic changeId
+
+ChangeId must be deterministic for the same base/target.
+
+Recommended:
+
+```
+changeId = sha256(
+  entityType + "|" + type + "|" + stableId + "|" +
+  JSON.stringify(canonicalize(details.fields)) + "|" +
+  JSON.stringify(path)
+).slice(0, 16)
+```
+
+Store it as a short hex string for readability.
+
+---
+
+## G) Summary string rules (human readable but deterministic)
+
+### SECTION summaries
+
+* ADD: `Added section "<title>"`
+* REMOVE: `Removed section "<title>"`
+* RENAME: `Renamed section "<from>" → "<to>"`
+* MOVE: `Moved section "<title>" from position X → Y`
+
+### ITEM summaries
+
+For items, include section context:
+
+* ADD: `Added feature "<title>" to "<sectionTitle>"`
+* REMOVE: `Removed feature "<title>" from "<sectionTitle>"`
+* MODIFY: `Updated feature "<title>"` + optional suffix (see below)
+* MOVE: `Moved feature "<title>" from "<fromSection>" → "<toSection>"`
+
+### OPTIONAL deterministic suffix for MODIFY
+
+To keep summaries compact but informative, append changed fields in a fixed order:
+
+Field order for suffix:
+
+1. TITLE
+2. DESCRIPTION
+3. ACCEPTANCE
+4. PRIORITY
+
+Example:
+`Updated feature "Payments" (description, acceptanceCriteria)`
+
+This suffix is computed by listing which fields changed.
+
+---
+
+## H) Export mapping rules
+
+### PDF/DOCX “Changes since vX.Y”
+
+Render grouped by section (deterministic):
+
+* “Removed”
+* “Added”
+* “Modified”
+* “Moved”
+
+Within each group, render entries in canonical order.
+
+### XLSX export
+
+Produce two sheets:
+
+1. `Diff_Summary`
+   Columns:
+
+* entityType
+* type
+* stableId
+* fromSectionTitle
+* toSectionTitle
+* fromOrderIndex
+* toOrderIndex
+* summary
+
+2. `Diff_Fields`
+   Columns:
+
+* changeId
+* entityType
+* stableId
+* field
+* from
+* to
+
+This keeps it machine-usable.
+
+---
+
+## I) Where to store the diff summary
+
+Two options:
+
+### Option 1 (recommended): store on Proposal at submit time
+
+* Generate diff when proposal is submitted for approval
+* Persist `diffSummaryJson` on `ChangeProposal` (jsonb)
+* Use this for UI + exports consistently
+
+Add to `ChangeProposal`:
+
+* `diffSummaryJson Json?`
+
+This avoids “diff drift” if you later change diff logic. It also makes audits easier.
+
+### Option 2: compute on demand
+
+Compute diff every time. Less storage but more risk of future drift.
+
+---
+
+## J) Deterministic diff generation function signature
+
+Claude should implement:
+
+* `buildDiffSummary(baseSnapshot, targetSnapshot): DiffSummary`
+* `canonicalizeDiffSummary(diffSummary): string` (RFC 8785 style)
+* `hashDiffSummary(diffSummary): string` (optional, sha256 canonical string)
+
+---
+
+## K) Diff summary acceptance criteria
+
+* Same base/target content always produces byte-identical canonical diff summary string.
+* Reordering items produces MOVE entries only, not MODIFY.
+* Pure whitespace line-ending changes do not create MODIFY entries.
+* Summary text is stable and matches export outputs.
+
+---
+
+## Confidence level
+
+**0.9** this will give you stable, export-friendly diffs without turning into a full patch system. The biggest pitfall is identity mapping—make sure `sourceScopeItemId`/stableId strategy is implemented consistently.
+

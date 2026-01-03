@@ -1,0 +1,613 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PartyType {
+  DEV
+  CLIENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  RELEASED
+  ARCHIVED
+}
+
+enum ProjectRole {
+  LEADER
+  MEMBER
+  VIEWER
+}
+
+enum WorkspaceMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProposalStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ApprovalStatus {
+  PENDING
+  VIEWED
+  SIGNED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum ApprovalRecipientStatus {
+  PENDING
+  VIEWED
+  SIGNED
+  DECLINED
+}
+
+enum ScopeItemPriority {
+  MUST
+  SHOULD
+  COULD
+}
+
+enum CommentVisibility {
+  SHARED
+  INTERNAL
+}
+
+enum CommentThreadStatus {
+  OPEN
+  RESOLVED
+}
+
+enum AuditActorType {
+  USER
+  CLIENT_USER
+  SYSTEM
+}
+
+enum ImpactLevel {
+  NONE
+  MINOR
+  MAJOR
+}
+
+enum RiskLevel {
+  LOW
+  MED
+  HIGH
+}
+
+// ============================================================================
+// AUTHENTICATION & IDENTITY
+// ============================================================================
+
+// Internal users (dev team, agency, workspace members)
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth.js session management
+  accounts Account[]
+  sessions Session[]
+
+  // Workspace memberships
+  workspaceMemberships WorkspaceMember[]
+
+  // Project memberships
+  projectMemberships ProjectMembership[]
+
+  // Created entities
+  createdProjects         Project[]         @relation("ProjectCreatedBy")
+  createdScopeVersions    ScopeVersion[]    @relation("ScopeVersionCreatedBy")
+  createdProposals        ChangeProposal[]  @relation("ProposalCreatedBy")
+  createdApprovalRequests ApprovalRequest[] @relation("ApprovalRequestCreatedBy")
+
+  // Comments
+  commentThreads  CommentThread[]
+  commentMessages CommentMessage[]
+
+  // Audit
+  auditEvents AuditEvent[] @relation("AuditEventUser")
+
+  @@map("users")
+}
+
+// External client users (client stakeholders)
+model ClientUser {
+  id            String    @id @default(uuid())
+  clientOrgId   String
+  email         String
+  name          String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  clientOrg ClientOrg @relation(fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  // Project memberships
+  projectMemberships ProjectMembership[]
+
+  // Approvals
+  approvalRecipients ApprovalRecipient[]
+
+  // Comments
+  commentThreads  CommentThread[]
+  commentMessages CommentMessage[]
+
+  // Audit
+  auditEvents AuditEvent[] @relation("AuditEventClientUser")
+
+  @@unique([clientOrgId, email])
+  @@map("client_users")
+}
+
+// Client organizations
+model ClientOrg {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientUsers ClientUser[]
+  projects    Project[]
+
+  @@map("client_orgs")
+}
+
+// ============================================================================
+// WORKSPACES
+// ============================================================================
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  projects    Project[]
+  auditEvents AuditEvent[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String              @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceMemberRole
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
+
+model Project {
+  id                    String        @id @default(uuid())
+  workspaceId           String?
+  clientOrgId           String?
+  name                  String
+  clientSummary         String
+  internalDescription   String?
+  status                ProjectStatus @default(DRAFT)
+  currentScopeVersionId String?
+  portalEnabled         Boolean       @default(false)
+  portalPublicKey       String?       @unique
+  approvalRuleClient    Json // { required: number, mode: "ANY" | "ALL" }
+  approvalRuleDev       Json // { required: number, mode: "ANY" | "ALL" }
+  createdByUserId       String
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  clientOrg ClientOrg? @relation(fields: [clientOrgId], references: [id], onDelete: SetNull)
+  createdBy User       @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
+
+  memberships      ProjectMembership[]
+  scopeVersions    ScopeVersion[]
+  proposals        ChangeProposal[]
+  approvalRequests ApprovalRequest[]
+  commentThreads   CommentThread[]
+  auditEvents      AuditEvent[]
+
+  @@map("projects")
+}
+
+model ProjectMembership {
+  id           String      @id @default(uuid())
+  projectId    String
+  userId       String?
+  clientUserId String?
+  party        PartyType
+  role         ProjectRole
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientUser ClientUser? @relation(fields: [clientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@unique([projectId, clientUserId])
+  @@map("project_memberships")
+}
+
+// ============================================================================
+// SCOPE VERSIONS (IMMUTABLE AFTER APPROVAL)
+// ============================================================================
+
+model ScopeVersion {
+  id                    String      @id @default(uuid())
+  projectId             String
+  major                 Int         @default(1)
+  minor                 Int         @default(0)
+  basedOnScopeVersionId String?
+  createdFromProposalId String?
+  changeNote            String
+  rationale             String
+  impactTimeline        ImpactLevel
+  impactCost            ImpactLevel
+  risk                  RiskLevel
+  createdByUserId       String
+  createdAt             DateTime    @default(now())
+  approvedAt            DateTime?
+  snapshotHash          String?
+
+  project             Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  basedOnScopeVersion ScopeVersion?   @relation("ScopeVersionHistory", fields: [basedOnScopeVersionId], references: [id])
+  createdBy           User            @relation("ScopeVersionCreatedBy", fields: [createdByUserId], references: [id])
+  createdFromProposal ChangeProposal? @relation(fields: [createdFromProposalId], references: [id])
+
+  sections             ScopeSection[]
+  nextVersions         ScopeVersion[]   @relation("ScopeVersionHistory")
+  proposalsBasedOnThis ChangeProposal[] @relation("ProposalBaseVersion")
+
+  @@map("scope_versions")
+}
+
+model ScopeSection {
+  id             String   @id @default(uuid())
+  scopeVersionId String
+  title          String
+  orderIndex     Int
+  createdAt      DateTime @default(now())
+
+  scopeVersion ScopeVersion @relation(fields: [scopeVersionId], references: [id], onDelete: Cascade)
+
+  items ScopeItem[]
+
+  @@map("scope_sections")
+}
+
+model ScopeItem {
+  id                 String            @id @default(uuid())
+  scopeSectionId     String
+  title              String
+  description        String
+  acceptanceCriteria String?
+  priority           ScopeItemPriority
+  orderIndex         Int
+  createdAt          DateTime          @default(now())
+
+  scopeSection ScopeSection @relation(fields: [scopeSectionId], references: [id], onDelete: Cascade)
+
+  @@map("scope_items")
+}
+
+// ============================================================================
+// CHANGE PROPOSALS
+// ============================================================================
+
+model ChangeProposal {
+  id                 String         @id @default(uuid())
+  projectId          String
+  baseScopeVersionId String
+  proposedMajor      Int
+  proposedMinor      Int
+  status             ProposalStatus @default(DRAFT)
+  title              String
+  changeNote         String
+  rationale          String
+  impactTimeline     ImpactLevel
+  impactCost         ImpactLevel
+  risk               RiskLevel
+  requestedByParty   PartyType
+  requestedByName    String?
+  createdByUserId    String?
+  diffSummaryJson    Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  submittedAt        DateTime?
+
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baseScopeVersion ScopeVersion @relation("ProposalBaseVersion", fields: [baseScopeVersionId], references: [id])
+  createdBy        User?        @relation("ProposalCreatedBy", fields: [createdByUserId], references: [id])
+
+  sections             ProposalSection[]
+  diffEntries          ProposalDiffEntry[]
+  approvalRequests     ApprovalRequest[]
+  createdScopeVersions ScopeVersion[]
+
+  @@map("change_proposals")
+}
+
+model ProposalSection {
+  id                   String   @id @default(uuid())
+  proposalId           String
+  title                String
+  orderIndex           Int
+  sourceScopeSectionId String?
+  createdAt            DateTime @default(now())
+
+  proposal ChangeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  items ProposalItem[]
+
+  @@map("proposal_sections")
+}
+
+model ProposalItem {
+  id                 String            @id @default(uuid())
+  proposalSectionId  String
+  title              String
+  description        String
+  acceptanceCriteria String?
+  priority           ScopeItemPriority
+  orderIndex         Int
+  sourceScopeItemId  String?
+  createdAt          DateTime          @default(now())
+
+  proposalSection ProposalSection @relation(fields: [proposalSectionId], references: [id], onDelete: Cascade)
+
+  @@map("proposal_items")
+}
+
+model ProposalDiffEntry {
+  id           String   @id @default(uuid())
+  proposalId   String
+  type         String // ADD | REMOVE | MODIFY | MOVE
+  entityType   String // SECTION | ITEM
+  sourceId     String?
+  targetId     String?
+  summary      String
+  fieldChanges Json?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  proposal ChangeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@map("proposal_diff_entries")
+}
+
+// ============================================================================
+// APPROVALS & SIGNATURES
+// ============================================================================
+
+model ApprovalRequest {
+  id              String         @id @default(uuid())
+  projectId       String
+  proposalId      String
+  status          ApprovalStatus @default(PENDING)
+  sentAt          DateTime?
+  dueAt           DateTime?
+  createdByUserId String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  proposal  ChangeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  createdBy User           @relation("ApprovalRequestCreatedBy", fields: [createdByUserId], references: [id])
+
+  recipients ApprovalRecipient[]
+
+  @@map("approval_requests")
+}
+
+model ApprovalRecipient {
+  id                String                  @id @default(uuid())
+  approvalRequestId String
+  party             PartyType
+  userId            String?
+  clientUserId      String?
+  email             String
+  name              String?
+  status            ApprovalRecipientStatus @default(PENDING)
+  viewedAt          DateTime?
+  signedAt          DateTime?
+  declinedAt        DateTime?
+  declineReason     String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  clientUser      ClientUser?     @relation(fields: [clientUserId], references: [id], onDelete: SetNull)
+
+  signature Signature?
+
+  @@map("approval_recipients")
+}
+
+model Signature {
+  id                    String   @id @default(uuid())
+  approvalRecipientId   String   @unique
+  typedName             String
+  title                 String?
+  ipAddress             String
+  userAgent             String
+  signedAt              DateTime
+  snapshotHash          String
+  signatureHash         String
+  agreementSnapshotJson Json
+  createdAt             DateTime @default(now())
+
+  approvalRecipient ApprovalRecipient @relation(fields: [approvalRecipientId], references: [id], onDelete: Cascade)
+
+  @@map("signatures")
+}
+
+// ============================================================================
+// COMMENTS
+// ============================================================================
+
+model CommentThread {
+  id                     String              @id @default(uuid())
+  projectId              String
+  party                  PartyType
+  visibility             CommentVisibility
+  status                 CommentThreadStatus @default(OPEN)
+  entityType             String // PROPOSAL_ITEM | SCOPE_ITEM
+  entityId               String
+  field                  String? // TITLE | DESCRIPTION | ACCEPTANCE | GENERAL
+  quotedText             String?
+  anchorMeta             Json?
+  createdByUserId        String?
+  createdByClientUserId  String?
+  createdAt              DateTime            @default(now())
+  resolvedAt             DateTime?
+  resolvedByUserId       String?
+  resolvedByClientUserId String?
+
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser   User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByClient ClientUser? @relation(fields: [createdByClientUserId], references: [id], onDelete: SetNull)
+
+  // Polymorphic relation - entityId resolved manually in application code
+  // entityType = "SCOPE_ITEM" -> look up ScopeItem by entityId
+  // entityType = "PROPOSAL_ITEM" -> look up ProposalItem by entityId
+
+  messages CommentMessage[]
+
+  @@map("comment_threads")
+}
+
+model CommentMessage {
+  id                    String   @id @default(uuid())
+  threadId              String
+  body                  String
+  createdByUserId       String?
+  createdByClientUserId String?
+  createdAt             DateTime @default(now())
+
+  thread          CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  createdByUser   User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByClient ClientUser?   @relation(fields: [createdByClientUserId], references: [id], onDelete: SetNull)
+
+  @@map("comment_messages")
+}
+
+// ============================================================================
+// AUDIT LOG (APPEND-ONLY)
+// ============================================================================
+
+model AuditEvent {
+  id                String         @id @default(uuid())
+  workspaceId       String?
+  projectId         String?
+  actorType         AuditActorType
+  actorUserId       String?
+  actorClientUserId String?
+  action            String
+  entityType        String
+  entityId          String
+  metadata          Json?
+  createdAt         DateTime       @default(now())
+
+  workspace   Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actorUser   User?       @relation("AuditEventUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorClient ClientUser? @relation("AuditEventClientUser", fields: [actorClientUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("audit_events")
+}
+
+// ============================================================================
+// AUTH.JS REQUIRED TABLES
+// ============================================================================
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model OTPToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String
+  expires   DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, token])
+  @@map("otp_tokens")
+}

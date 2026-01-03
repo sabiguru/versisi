@@ -1,0 +1,729 @@
+Below is a **complete Claude-ready build brief** you can paste directly into Claude to generate the **Next.js (App Router) + Prisma + PostgreSQL** implementation.
+
+It is intentionally **strict and disciplined**: versioned scope agreements, proposals, approvals, comments anchored to features, exports (PDF/DOCX/XLSX), audit log, and a client portal. No task boards, no chat, no Gantt.
+
+---
+
+# BUILD BRIEF — “Versioned Scope Agreement” SaaS
+
+## 0) One-sentence product definition
+
+A system-of-record where **devs and clients agree on a project scope**, then every change becomes a **new version** (Git-like commit history) with **threaded comments** and **explicit sign-off**, and the full history can be exported (PDF/DOCX/XLSX).
+
+---
+
+## 1) Tech Stack Requirements
+
+### Frontend / App
+
+* Next.js 14+ App Router
+* TypeScript
+* TailwindCSS (or shadcn/ui optional)
+* Server Actions preferred for mutations (can use Route Handlers if needed)
+* Auth: NextAuth.js (Auth.js) with email+password or magic link (recommend magic links for clients)
+
+### Backend
+
+* Prisma ORM
+* PostgreSQL
+* Background jobs: can start with “in-process” scheduled jobs; ideally add:
+
+  * BullMQ + Redis OR
+  * Vercel Cron + DB for reminders (simpler first)
+
+### Files / Exports
+
+* PDF export via Playwright (server-side) OR React-PDF (less faithful)
+* DOCX export via docx templating library (docx / docxtemplater)
+* XLSX export via exceljs
+* Store export files in S3-compatible storage OR generate on demand (MVP: generate on demand)
+
+### Email
+
+* Resend / Postmark / SendGrid
+* Templates for invites + approval requests + reminders
+
+---
+
+## 2) Core Concepts (Non-negotiable Discipline Rules)
+
+1. **Approved versions are immutable.**
+2. All changes happen via **Change Proposals**, which produce the next **Scope Version** upon approval.
+3. **Comments do not alter scope.** They are annotations attached to a specific feature item (and optionally to highlighted quoted text).
+4. Approvals are explicit, logged, and produce a signature record with IP + user-agent + timestamp.
+5. Maintain an append-only **Audit Log**.
+
+---
+
+## 3) Roles & Permissions
+
+### Parties
+
+Every project has two parties:
+
+* DEV party
+* CLIENT party
+
+### Project roles (per party)
+
+* `LEADER` — can approve/sign, invite members in their party, submit proposals (config)
+* `MEMBER` — can comment; dev members can draft proposals (default yes)
+* `VIEWER` — read-only
+
+### Required constraints
+
+* Project must have **at least 1 DEV leader** and **at least 1 CLIENT leader** before any approval request can be sent.
+* Default approval rule: **1 of N leaders** on CLIENT side required; **1 of N** on DEV side required (mutual sign-off default ON, but configurable).
+
+### Who can create a project?
+
+* Any registered user can create a project.
+* During project creation wizard, user declares they are on DEV or CLIENT side for this project; they may or may not be a leader.
+* If they are not a leader, they must invite/assign a leader for their side.
+
+---
+
+## 4) Data Model (Prisma Schema Draft)
+
+> Implement as Prisma models; adjust naming as needed. Use UUID IDs.
+
+### Enums
+
+* `PartyType`: `DEV`, `CLIENT`
+* `ProjectStatus`: `DRAFT`, `ACTIVE`, `RELEASED`, `ARCHIVED`
+* `ProjectRole`: `LEADER`, `MEMBER`, `VIEWER`
+* `ProposalStatus`: `DRAFT`, `INTERNAL_REVIEW`, `AWAITING_APPROVAL`, `APPROVED`, `REJECTED`, `WITHDRAWN`
+* `ApprovalStatus`: `PENDING`, `VIEWED`, `SIGNED`, `DECLINED`, `CANCELLED`, `EXPIRED`
+* `ApprovalRecipientStatus`: `PENDING`, `VIEWED`, `SIGNED`, `DECLINED`
+* `ScopeItemPriority`: `MUST`, `SHOULD`, `COULD`
+* `CommentVisibility`: `SHARED`, `INTERNAL`
+* `CommentThreadStatus`: `OPEN`, `RESOLVED`
+* `AuditActorType`: `USER`, `CLIENT_USER`, `SYSTEM`
+
+### Models
+
+#### User (internal + can also be client if you want unified accounts)
+
+* `id`, `email` unique, `name`, `createdAt`
+
+#### Workspace (optional but recommended)
+
+If you want multi-project organization:
+
+* `id`, `name`, `slug` unique, `createdAt`
+
+#### WorkspaceMember
+
+* `id`
+* `workspaceId`
+* `userId`
+* `role` (`OWNER|ADMIN|MEMBER`)
+* unique `(workspaceId, userId)`
+
+#### ClientOrg
+
+* `id`
+* `workspaceId`
+* `name`
+* `createdAt`
+
+#### ClientUser
+
+(If you don’t want unified user accounts for clients)
+
+* `id`
+* `clientOrgId`
+* `email`
+* `name`
+* `createdAt`
+
+#### Project
+
+* `id`
+* `workspaceId` (nullable if you allow personal mode)
+* `clientOrgId` (nullable initially)
+* `name`
+* `clientSummary` (string)
+* `internalDescription` (text nullable)
+* `status` (ProjectStatus)
+* `currentScopeVersionId` nullable
+* `portalEnabled` boolean default false
+* `portalPublicKey` unique nullable
+* `approvalRuleClient` jsonb (e.g. `{ required: 1, mode: "ANY" }`)
+* `approvalRuleDev` jsonb
+* `createdByUserId`
+* `createdAt`, `updatedAt`
+
+#### ProjectMembership
+
+Connects users to project + party + role.
+
+* `id`
+* `projectId`
+* `userId` nullable (if internal user)
+* `clientUserId` nullable (if external)
+* `party` PartyType
+* `role` ProjectRole
+* unique constraint: `(projectId, userId)` and `(projectId, clientUserId)`
+
+#### ScopeVersion (immutable snapshot after approval)
+
+* `id`
+* `projectId`
+* `major` int default 1
+* `minor` int default 0
+* `basedOnScopeVersionId` nullable
+* `createdFromProposalId` nullable
+* `changeNote` string (commit message)
+* `rationale` text
+* `impactTimeline` enum NONE/MINOR/MAJOR (or string)
+* `impactCost` enum NONE/MINOR/MAJOR
+* `risk` enum LOW/MED/HIGH
+* `createdByUserId`
+* `createdAt`
+* `approvedAt` nullable
+
+#### ScopeSection (belongs to ScopeVersion)
+
+* `id`, `scopeVersionId`
+* `title`
+* `orderIndex`
+
+#### ScopeItem (belongs to ScopeSection)
+
+* `id`, `scopeSectionId`
+* `title`
+* `description` text
+* `acceptanceCriteria` text nullable
+* `priority` ScopeItemPriority
+* `orderIndex`
+
+#### ChangeProposal
+
+* `id`
+* `projectId`
+* `baseScopeVersionId` (required)
+* `proposedMajor` int
+* `proposedMinor` int
+* `status` ProposalStatus
+* `title` string
+* `changeNote` string required
+* `rationale` text required
+* `impactTimeline`, `impactCost`, `risk`
+* `requestedByParty` PartyType
+* `requestedByName` nullable (if request came by email)
+* `createdByUserId` nullable (if created by internal user)
+* `createdAt`, `updatedAt`
+* `submittedAt` nullable
+
+#### ProposalSection (editable snapshot)
+
+* `id`
+* `proposalId`
+* `title`
+* `orderIndex`
+* `sourceScopeSectionId` nullable (for diff mapping)
+
+#### ProposalItem
+
+* `id`
+* `proposalSectionId`
+* `title`
+* `description` text
+* `acceptanceCriteria` text nullable
+* `priority`
+* `orderIndex`
+* `sourceScopeItemId` nullable
+
+#### ProposalDiffEntry (persisted diff, optional but recommended)
+
+* `id`, `proposalId`
+* `type` (`ADD|REMOVE|MODIFY|MOVE`)
+* `entityType` (`SECTION|ITEM`)
+* `sourceId` nullable
+* `targetId` nullable
+* `summary` string
+* `fieldChanges` jsonb nullable (old/new)
+* `note` text nullable
+* `createdAt`
+
+#### ApprovalRequest
+
+* `id`
+* `projectId`
+* `proposalId` (required in MVP)
+* `status` ApprovalStatus
+* `sentAt` nullable
+* `dueAt` nullable
+* `createdByUserId`
+* `createdAt`
+
+#### ApprovalRecipient
+
+* `id`
+* `approvalRequestId`
+* `party` PartyType
+* `userId` nullable
+* `clientUserId` nullable
+* `email` string (store explicit email snapshot)
+* `name` string nullable
+* `status` ApprovalRecipientStatus
+* `viewedAt` nullable
+* `signedAt` nullable
+* `declinedAt` nullable
+* `declineReason` text nullable
+
+#### Signature
+
+* `id`
+* `approvalRecipientId`
+* `typedName`
+* `title` nullable
+* `ipAddress`
+* `userAgent`
+* `signedAt`
+* `signatureHash` string
+* `agreementSnapshotJson` jsonb (store full proposed agreement snapshot used for signing)
+
+#### CommentThread
+
+* `id`
+* `projectId`
+* `party` PartyType (author party)
+* `visibility` CommentVisibility
+* `status` CommentThreadStatus
+* `entityType` (`PROPOSAL_ITEM|SCOPE_ITEM`)
+* `entityId` string (store UUID as string)
+* `field` (`TITLE|DESCRIPTION|ACCEPTANCE|GENERAL`) default GENERAL
+* `quotedText` nullable
+* `anchorMeta` jsonb nullable (offsets/hash)
+* `createdByUserId` nullable
+* `createdByClientUserId` nullable
+* `createdAt`
+* `resolvedAt` nullable
+* `resolvedByUserId` nullable
+* `resolvedByClientUserId` nullable
+
+#### CommentMessage
+
+* `id`
+* `threadId`
+* `body` text
+* `createdByUserId` nullable
+* `createdByClientUserId` nullable
+* `createdAt`
+
+#### AuditEvent (append-only)
+
+* `id`
+* `workspaceId` nullable
+* `projectId` nullable
+* `actorType` AuditActorType
+* `actorUserId` nullable
+* `actorClientUserId` nullable
+* `action` string (e.g. `PROJECT_CREATED`, `PROPOSAL_SUBMITTED`, `APPROVAL_SIGNED`)
+* `entityType` string
+* `entityId` string
+* `metadata` jsonb nullable
+* `createdAt`
+
+---
+
+## 5) State Machines & Business Logic
+
+### Project status transitions
+
+* `DRAFT` → `ACTIVE` when v1.0 is approved
+* `ACTIVE` → `RELEASED` manual action
+* `ACTIVE/RELEASED` → `ARCHIVED` manual action
+
+### Proposal status transitions
+
+* `DRAFT` → `INTERNAL_REVIEW` (optional)
+* `DRAFT/INTERNAL_REVIEW` → `AWAITING_APPROVAL` when approval request is sent
+* `AWAITING_APPROVAL` → `APPROVED` when required signatures collected
+* `AWAITING_APPROVAL` → `REJECTED` if any required leader declines (config)
+* `DRAFT/INTERNAL_REVIEW/AWAITING_APPROVAL` → `WITHDRAWN` by dev leader
+
+### Approval status transitions
+
+* `PENDING` (created) → `VIEWED` per recipient events
+* `PENDING/VIEWED` → `SIGNED` when recipient signs
+* `PENDING/VIEWED` → `DECLINED` when recipient declines
+* `PENDING/VIEWED` → `CANCELLED` by internal dev leader/admin
+* `PENDING/VIEWED` → `EXPIRED` by due date job
+
+### Creating a new version after approval
+
+When proposal hits `APPROVED`:
+
+1. Generate a `ScopeVersion` snapshot from the proposal sections/items.
+2. Set `approvedAt`, set `project.currentScopeVersionId` to this version.
+3. If project status is `DRAFT`, set to `ACTIVE`.
+4. Mark previous current version as superseded (optional: just implied by `currentScopeVersionId`).
+5. Write audit events.
+
+### Diff generation
+
+Compute diff between `baseScopeVersion` and `proposal snapshot` using `sourceScopeItemId/sourceScopeSectionId` mapping:
+
+* Added: proposal items with null source
+* Removed: base items absent from proposal
+* Modified: same source id with changed fields
+* Moved: order/section change
+
+Persist to `ProposalDiffEntry` on save/submit.
+
+---
+
+## 6) Route Map (Next.js App Router)
+
+### Public
+
+* `/` landing
+* `/pricing`
+* `/login`
+* `/signup`
+* `/verify` (magic link)
+* `/forgot-password`
+
+### Internal App
+
+* `/app` dashboard
+* `/app/projects`
+* `/app/projects/new` (wizard)
+* `/app/projects/[projectId]` overview
+* `/app/projects/[projectId]/versions`
+* `/app/projects/[projectId]/versions/[versionId]`
+* `/app/projects/[projectId]/proposals`
+* `/app/projects/[projectId]/proposals/new` (creates draft from current version)
+* `/app/projects/[projectId]/proposals/[proposalId]` editor
+* `/app/projects/[projectId]/approvals`
+* `/app/projects/[projectId]/approvals/[approvalRequestId]`
+* `/app/projects/[projectId]/audit`
+* `/app/clients`
+* `/app/clients/[clientOrgId]`
+* `/app/settings` (workspace)
+* `/app/search`
+
+### Client Portal
+
+* `/p/[publicProjectKey]` portal home
+* `/p/[publicProjectKey]/versions/[versionId]`
+* `/p/[publicProjectKey]/approve/[approvalRequestId]` (shows pending proposal and signing UI)
+
+---
+
+## 7) Page-by-Page UI Requirements
+
+### `/app/projects/new` — Project Wizard (multi-step)
+
+Steps:
+
+1. Project basics (name, summary)
+2. “Your side”: DEV or CLIENT
+3. “Are you a leader?” yes/no
+4. Create/select other party org + invite at least 1 leader email
+5. Invite additional members (dev + client lists with roles)
+6. Approval rules (defaults: require client leader + dev leader)
+7. Build initial scope v1.0 (creates a proposal based on empty)
+8. Review + send for approval
+
+Wizard outputs:
+
+* Project created
+* Proposal created (v1.0)
+* Members invited (emails queued)
+* Approval request created and sent to leaders
+
+### Project Overview `/app/projects/[id]`
+
+* Current approved version card
+* Pending proposal card (if any)
+* “Next action” buttons:
+
+  * Create change proposal
+  * Send approval request (if proposal ready)
+  * View portal
+  * Export current version (PDF/DOCX/XLSX)
+* Recent audit events list
+
+### Proposal Editor `/app/projects/[id]/proposals/[proposalId]`
+
+Layout:
+
+* Proposed scope editor (sections/items)
+* Diff panel showing added/removed/modified
+* Comment counts per feature item
+  Fields required before submit:
+* changeNote (commit message)
+* rationale
+* impactTimeline/cost/risk
+  Actions:
+* Save draft
+* Submit for approval (creates/sends approval request)
+* Preview exports
+* Withdraw (if not approved)
+
+Commenting in proposal:
+
+* Feature-level threaded comments on each proposal item
+* Optional quoted highlight: select text inside description → creates thread with `quotedText`
+
+### Version View `/app/projects/[id]/versions/[versionId]`
+
+Read-only snapshot:
+
+* sections/items
+* approvals summary
+* comment threads attached (threads can remain visible for clarity, but do not change content)
+* exports buttons (PDF/DOCX/XLSX)
+* compare link to previous version (optional)
+
+### Approvals `/app/projects/[id]/approvals/[approvalRequestId]`
+
+* recipient list and statuses
+* resend reminder
+* cancel request
+* link to client signing page
+
+### Audit `/app/projects/[id]/audit`
+
+* append-only event list, filterable by action
+
+### Client Portal `/p/[key]`
+
+* current approved version
+* pending approval banner
+* version history list
+* export current version
+
+### Client Approve `/p/[key]/approve/[approvalRequestId]`
+
+* summary of what’s being approved
+* diff summary vs base version
+* full agreement snapshot (proposal)
+* comment threads visible; allow adding comments (configurable)
+* signing form:
+
+  * attestation checkbox
+  * typed name
+  * optional title
+  * approve / decline (decline requires reason)
+
+---
+
+## 8) Server Actions / API Endpoint List
+
+> Implement with Server Actions; optionally use route handlers for external portal requests.
+
+### Auth & Membership
+
+* `createProjectWizard(payload)`
+* `inviteProjectMembers(projectId, invites[])`
+* `acceptInvite(token)` (for internal and client)
+* `setProjectRole(memberId, role)`
+* `setProjectLeader(memberId, isLeader)` (role leader)
+
+### Scope / Proposal
+
+* `createProposalFromCurrent(projectId)`
+* `createInitialProposalEmpty(projectId)` (v1.0)
+* `updateProposalMeta(proposalId, {changeNote, rationale, impacts})`
+* `addProposalSection(proposalId, title)`
+* `renameProposalSection(sectionId, title)`
+* `reorderProposalSections(proposalId, order[])`
+* `addProposalItem(sectionId, itemPayload)`
+* `updateProposalItem(itemId, itemPayload)`
+* `moveProposalItem(itemId, toSectionId, newIndex)`
+* `removeProposalItem(itemId)` (delete from proposal)
+* `computeAndPersistProposalDiff(proposalId)` (or do in update mutations)
+
+### Approval
+
+* `createApprovalRequest(proposalId)` (build recipients from project rules)
+* `sendApprovalRequest(approvalRequestId)` (emails magic links)
+* `markApprovalViewed(approvalRecipientId)` (portal view tracking)
+* `signApproval(approvalRequestId, recipientToken, {typedName, title})`
+* `declineApproval(approvalRequestId, recipientToken, {reason})`
+* `cancelApprovalRequest(approvalRequestId)`
+* `remindApprovalRecipient(approvalRecipientId)`
+
+### Version finalization
+
+* `finalizeApprovedProposalToScopeVersion(proposalId)` (triggered when approval complete)
+* `setProjectStatus(projectId, status)` (release/archive)
+
+### Comments
+
+* `createCommentThread({entityType, entityId, field, visibility, quotedText, anchorMeta})`
+* `addCommentMessage(threadId, body)`
+* `resolveCommentThread(threadId)`
+* `reopenCommentThread(threadId)`
+
+### Exports
+
+* `exportVersionPdf(versionId)`
+* `exportVersionDocx(versionId)`
+* `exportVersionXlsx(versionId)`
+* `exportProposalPdf(proposalId)` (preview)
+
+### Audit logging helper
+
+* `logAuditEvent({projectId, action, entityType, entityId, metadata})`
+
+---
+
+## 9) Email Templates (Minimum Set)
+
+1. Project Invite (internal/dev)
+2. Client Invite (magic link)
+3. Approval Request (magic link to portal approve page)
+4. Approval Reminder
+5. Approval Signed Notification (to dev leaders + optionally client leaders)
+6. Approval Declined Notification
+
+Each email should include:
+
+* project name
+* what action is required
+* link
+* expiry note
+
+---
+
+## 10) Background Jobs / Cron
+
+* Expire approval requests past due date: set `EXPIRED`
+* Send reminders (manual button initially; later cron reminders)
+* Optional: “unresolved comments” digest (phase 2)
+
+---
+
+## 11) Security & Integrity Requirements
+
+* All portal links must use signed tokens with expiry.
+* Signing must verify recipient token matches an ApprovalRecipient and status is pending/viewed.
+* On signing, store `ipAddress`, `userAgent`.
+* Create `signatureHash` from a canonical JSON snapshot of the agreement + recipient metadata.
+* Approved scope versions must be immutable (enforce by only writing them once, no update routes).
+* Audit log must be append-only (no delete/update).
+
+---
+
+## 12) UX Guardrails (Stop Bloat)
+
+Explicitly do NOT build:
+
+* tasks, tickets, sprint boards
+* chat/messaging
+* time tracking, invoices
+* real-time presence/cursors
+* rich doc editor with arbitrary blocks
+
+Comments are only:
+
+* anchored to features/items (and optionally a quoted text selection)
+* thread + resolve/reopen
+* visibility: shared/internal
+
+---
+
+## 13) Minimal MVP Acceptance Tests (End-to-End)
+
+### Test 1 — v1.0 Agreement
+
+1. User signs up → creates project wizard as DEV leader
+2. Invites CLIENT leader via email
+3. Builds initial scope in proposal v1.0
+4. Sends approval request
+5. Client views, adds a clarification comment, signs
+6. System creates ScopeVersion v1.0 approved; project becomes ACTIVE
+7. Export v1.0 PDF and DOCX
+
+### Test 2 — Change Proposal & History
+
+1. Dev creates proposal v1.1 from current
+2. Adds a feature, modifies a description, removes a feature
+3. Diff panel shows changes
+4. Client highlights text and comments, dev replies, resolves
+5. Client signs v1.1
+6. New approved ScopeVersion v1.1 exists; history shows v1.0 → v1.1
+7. Export XLSX change log
+
+### Test 3 — Decline
+
+1. Dev sends v1.2 approval
+2. Client declines with reason
+3. Proposal status becomes REJECTED (or stays awaiting but flagged declined per rules)
+4. Audit log records decline with metadata
+
+---
+
+## 14) Suggested UI Component Breakdown
+
+Shared:
+
+* `ProjectHeader`
+* `VersionBadge`
+* `ScopeRenderer` (sections/items)
+* `ProposalEditor` (sections/items editable)
+* `DiffViewer`
+* `ApprovalStatusList`
+* `SignatureBlock`
+* `CommentThreadList`
+* `CommentComposer`
+* `AuditTimeline`
+* `ExportButtons`
+
+Portal:
+
+* `PortalHeader`
+* `ApprovalBanner`
+* `SigningForm`
+
+---
+
+## 15) Implementation Notes / Decisions to Make (Set Defaults)
+
+Use these defaults unless you intentionally change them:
+
+* Comments allowed in portal version views: **yes**
+* Comments allowed on signing page: **yes**
+* Block signing if unresolved comments exist: **no** (avoid friction)
+* Approval required from DEV leaders: **yes** (mutual sign-off default)
+* Approval required from CLIENT leaders: **yes**
+* Required signatures per side: **1 of N**
+
+---
+
+## 16) Deliverables Requested from Claude
+
+Ask Claude to output:
+
+1. Full Prisma schema
+2. Next.js route/file structure
+3. Server actions implementations with zod validation
+4. DB seed scripts
+5. Email sending module + templates
+6. PDF/DOCX/XLSX export utilities
+7. Minimal UI pages with functional CRUD and flows
+8. RBAC utilities (permission checks per action)
+9. Audit logging middleware/helper
+10. Token signing/verification for portal links
+
+---
+
+# Optional: A short “prompt wrapper” you can paste above this spec in Claude
+
+> Build a Next.js App Router SaaS implementing the following spec. Use Prisma + Postgres. Use Server Actions for mutations. Implement strict RBAC. Approved versions must be immutable. Comments are threaded annotations anchored to feature items with optional quoted text highlight. Implement client portal with signed expiring tokens for approvals. Provide PDF/DOCX/XLSX exports. Include audit log and email invites/approval requests. Follow the route map and API list exactly.
+
+---
+
+## Confidence level
+
+**0.88** this is fully Claude-buildable as a coherent app spec.
+The main implementation risk is **approval + token security + diff correctness**, so ensure Claude generates comprehensive tests around those.
+
+If you want, I can also add a **canonical JSON schema** for “agreement snapshot” used for hashing/signatures (so signatures are stable across export formats).
+

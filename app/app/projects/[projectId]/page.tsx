@@ -1,0 +1,281 @@
+import { prisma } from "@/lib/prisma";
+import { requireUserId } from "@/lib/session";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { CreateProposalButton } from "@/components/proposals/create-proposal-button";
+
+export default async function ProjectDetailPage({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const userId = await requireUserId();
+  const { projectId } = await params;
+
+  // Get project with memberships to check access
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      clientOrg: true,
+      memberships: {
+        include: {
+          user: true,
+          clientUser: true,
+        },
+      },
+      scopeVersions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+      proposals: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          createdBy: true,
+          approvalRequests: {
+            include: {
+              recipients: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!project) {
+    redirect("/app/projects");
+  }
+
+  // Check user has access
+  const userMembership = project.memberships.find((m) => m.userId === userId);
+  if (!userMembership) {
+    redirect("/app/projects");
+  }
+
+  const currentVersion = project.scopeVersions[0];
+  const draftProposals = project.proposals.filter(
+    (p) => p.status === "DRAFT"
+  );
+  const pendingProposals = project.proposals.filter(
+    (p) => p.status === "AWAITING_APPROVAL"
+  );
+  const approvedProposals = project.proposals.filter(
+    (p) => p.status === "APPROVED"
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="mb-4">
+            <Link
+              href="/app/projects"
+              className="text-sm text-accent hover:underline"
+            >
+              ← Back to Projects
+            </Link>
+          </div>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="font-heading text-3xl font-semibold text-text">
+                {project.name}
+              </h1>
+              <p className="mt-2 text-text/70">{project.clientSummary}</p>
+              <div className="mt-4 flex items-center gap-4 text-sm text-text/60">
+                {project.clientOrg && (
+                  <span className="rounded-md border border-text/10 bg-surface px-2 py-1">
+                    {project.clientOrg.name}
+                  </span>
+                )}
+                <span className="rounded-md border border-text/10 bg-surface px-2 py-1 capitalize">
+                  {project.status.toLowerCase().replace("_", " ")}
+                </span>
+                {currentVersion && (
+                  <span className="rounded-md border border-accent/20 bg-accent/10 px-2 py-1 text-accent">
+                    Current: v{currentVersion.major}.{currentVersion.minor}
+                  </span>
+                )}
+              </div>
+            </div>
+            <CreateProposalButton projectId={projectId} />
+          </div>
+        </div>
+
+        {/* Current Version */}
+        {currentVersion && (
+          <div className="mb-8 rounded-lg border border-text/10 bg-white p-6">
+            <h2 className="mb-4 font-heading text-xl font-semibold text-text">
+              Current Scope Version
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Version:</span>
+                <span className="rounded-md bg-accent/10 px-2 py-1 text-accent">
+                  v{currentVersion.major}.{currentVersion.minor}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium">Change Note:</span>{" "}
+                {currentVersion.changeNote}
+              </div>
+              <div>
+                <span className="font-medium">Rationale:</span>{" "}
+                {currentVersion.rationale}
+              </div>
+              <div className="mt-4">
+                <Link
+                  href={`/app/projects/${projectId}/versions/${currentVersion.id}`}
+                  className="text-accent hover:underline"
+                >
+                  View full version →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Draft Proposals */}
+        {draftProposals.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-4 font-heading text-xl font-semibold text-text">
+              Draft Proposals
+            </h2>
+            <div className="space-y-3">
+              {draftProposals.map((proposal) => (
+                <Link
+                  key={proposal.id}
+                  href={`/app/projects/${projectId}/proposals/${proposal.id}`}
+                  className="block rounded-lg border border-text/10 bg-white p-4 transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-text">{proposal.title}</h3>
+                      <p className="mt-1 text-sm text-text/60">
+                        {proposal.changeNote}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-xs text-text/50">
+                        <span>
+                          Proposed: v{proposal.proposedMajor}.
+                          {proposal.proposedMinor}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          By: {proposal.createdBy?.name || proposal.createdBy?.email || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="rounded-md border border-text/20 bg-text/5 px-2 py-1 text-xs text-text/60">
+                      Draft
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending Proposals */}
+        {pendingProposals.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-4 font-heading text-xl font-semibold text-text">
+              Pending Approval
+            </h2>
+            <div className="space-y-3">
+              {pendingProposals.map((proposal) => {
+                const request = proposal.approvalRequests[0];
+                const totalApprovals = request?.recipients.filter(
+                  (a) => a.status === "SIGNED"
+                ).length || 0;
+                const totalRecipients = request?.recipients.length || 0;
+
+                return (
+                  <Link
+                    key={proposal.id}
+                    href={`/app/projects/${projectId}/proposals/${proposal.id}`}
+                    className="block rounded-lg border border-warning/20 bg-warning/5 p-4 transition-shadow hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-text">
+                          {proposal.title}
+                        </h3>
+                        <p className="mt-1 text-sm text-text/60">
+                          {proposal.changeNote}
+                        </p>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-text/50">
+                          <span>
+                            Proposed: v{proposal.proposedMajor}.
+                            {proposal.proposedMinor}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Approvals: {totalApprovals}/{totalRecipients}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs text-warning">
+                        Pending
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Approved Proposals */}
+        {approvedProposals.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-4 font-heading text-xl font-semibold text-text">
+              Approved Changes
+            </h2>
+            <div className="space-y-3">
+              {approvedProposals.map((proposal) => (
+                <Link
+                  key={proposal.id}
+                  href={`/app/projects/${projectId}/proposals/${proposal.id}`}
+                  className="block rounded-lg border border-accent/20 bg-accent/5 p-4 transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-text">{proposal.title}</h3>
+                      <p className="mt-1 text-sm text-text/60">
+                        {proposal.changeNote}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-xs text-text/50">
+                        <span>
+                          Version: v{proposal.proposedMajor}.
+                          {proposal.proposedMinor}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          By: {proposal.createdBy?.name || proposal.createdBy?.email || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-xs text-accent">
+                      Approved
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {draftProposals.length === 0 &&
+          pendingProposals.length === 0 &&
+          approvedProposals.length === 0 && (
+            <div className="rounded-lg border border-text/10 bg-white p-12 text-center">
+              <p className="text-text/60">No proposals yet</p>
+              <p className="mt-2 text-sm text-text/50">
+                Create your first proposal to get started
+              </p>
+            </div>
+          )}
+      </div>
+    </div>
+  );
+}
