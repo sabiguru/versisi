@@ -1,6 +1,8 @@
 import { LoginForm } from "@/components/auth/login-form";
 import { SiteNav } from "@/components/ui/site-nav";
 
+export const dynamic = 'force-dynamic';
+
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50">

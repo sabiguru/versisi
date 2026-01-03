@@ -1,6 +1,8 @@
 import { SignupForm } from "@/components/auth/signup-form";
 import { SiteNav } from "@/components/ui/site-nav";
 
+export const dynamic = 'force-dynamic';
+
 export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gray-50">
