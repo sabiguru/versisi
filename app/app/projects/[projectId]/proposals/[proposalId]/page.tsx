@@ -37,6 +37,9 @@ export default async function ProposalEditPage({
     notFound();
   }
 
+  type Section = NonNullable<typeof proposal>["sections"][number];
+  type Item = Section["items"][number];
+
   const isBaseEmpty = proposal.baseScopeVersion.sections.length === 0;
 
   return (
@@ -67,11 +70,11 @@ export default async function ProposalEditPage({
           <div className="lg:col-span-2">
             <ProposalEditor
               proposalId={proposal.id}
-              sections={proposal.sections.map((s) => ({
+              sections={proposal.sections.map((s: Section) => ({
                 id: s.id,
                 title: s.title,
                 orderIndex: s.orderIndex,
-                items: s.items.map((i) => ({
+                items: s.items.map((i: Item) => ({
                   id: i.id,
                   title: i.title,
                   description: i.description,

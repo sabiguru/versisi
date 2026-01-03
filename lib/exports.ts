@@ -324,5 +324,5 @@ export async function generateProposalXLSX(proposalId: string): Promise<Buffer> 
     }
   }
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  return await workbook.xlsx.writeBuffer() as unknown as Buffer;
 }

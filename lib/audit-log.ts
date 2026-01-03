@@ -72,10 +72,10 @@ export async function getProjectAuditLog(
     prisma.auditEvent.findMany({
       where,
       include: {
-        user: {
+        actorUser: {
           select: { name: true, email: true },
         },
-        clientUser: {
+        actorClient: {
           select: { name: true, email: true },
         },
       },
@@ -104,14 +104,14 @@ export async function getTargetAuditLog(
   const [events, total] = await Promise.all([
     prisma.auditEvent.findMany({
       where: {
-        targetType,
-        targetId,
+        entityType: targetType,
+        entityId: targetId,
       },
       include: {
-        user: {
+        actorUser: {
           select: { name: true, email: true },
         },
-        clientUser: {
+        actorClient: {
           select: { name: true, email: true },
         },
       },
@@ -120,7 +120,7 @@ export async function getTargetAuditLog(
       skip: options?.offset || 0,
     }),
     prisma.auditEvent.count({
-      where: { targetType, targetId },
+      where: { entityType: targetType, entityId: targetId },
     }),
   ]);
 
@@ -137,10 +137,10 @@ export async function getRecentAuditEvents(limit: number = 100) {
       project: {
         select: { name: true },
       },
-      user: {
+      actorUser: {
         select: { name: true, email: true },
       },
-      clientUser: {
+      actorClient: {
         select: { name: true, email: true },
       },
     },
@@ -176,10 +176,10 @@ export function formatAuditEvent(event: {
   action: string;
   createdAt: Date;
   metadata?: any;
-  user?: { name: string | null; email: string } | null;
-  clientUser?: { name: string | null; email: string } | null;
+  actorUser?: { name: string | null; email: string } | null;
+  actorClient?: { name: string | null; email: string } | null;
 }): string {
-  const actor = event.user?.name || event.clientUser?.name || event.user?.email || event.clientUser?.email || "System";
+  const actor = event.actorUser?.name || event.actorClient?.name || event.actorUser?.email || event.actorClient?.email || "System";
   const timestamp = event.createdAt.toLocaleString();
 
   switch (event.action) {

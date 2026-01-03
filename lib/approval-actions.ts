@@ -12,6 +12,8 @@ import {
   computeSnapshotHash,
   computeSignatureHash,
 } from "./canonical-snapshot";
+import { requireUser } from "./session";
+import { revalidatePath } from "next/cache";
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -343,8 +345,13 @@ async function checkApprovalCompletion(approvalRequestId: string) {
         major: approvalRequest.proposal.proposedMajor,
         minor: approvalRequest.proposal.proposedMinor,
         changeNote: approvalRequest.proposal.changeNote,
+        rationale: approvalRequest.proposal.rationale,
+        impactTimeline: approvalRequest.proposal.impactTimeline,
+        impactCost: approvalRequest.proposal.impactCost,
+        risk: approvalRequest.proposal.risk,
         basedOnScopeVersionId: approvalRequest.proposal.baseScopeVersionId,
-        approvedByProposalId: approvalRequest.proposalId,
+        createdFromProposalId: approvalRequest.proposalId,
+        createdByUserId: approvalRequest.createdByUserId,
         approvedAt: now,
         sections: {
           create: approvalRequest.proposal.sections.map((section) => ({

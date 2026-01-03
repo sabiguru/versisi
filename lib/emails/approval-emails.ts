@@ -66,10 +66,10 @@ export async function sendApprovalRequestEmails(approvalRequestId: string) {
     })
   );
 
-  const validEmails = emails.filter((e) => e !== null) as Awaited<
+  const validEmails = emails.filter((e) => e !== null) as Array<Awaited<
     ReturnType<typeof approvalRequestEmail>
   > &
-    { to: string }[];
+    { to: string }>;
 
   return sendBatchEmails(validEmails);
 }
@@ -133,6 +133,7 @@ export async function sendApprovalSignedNotification(
   const recipient = await prisma.approvalRecipient.findUnique({
     where: { id: approvalRecipientId },
     include: {
+      signature: true,
       approvalRequest: {
         include: {
           proposal: {

@@ -25,6 +25,8 @@ export default async function ApprovalPage({ params }: ApprovalPageProps) {
     },
   });
 
+  type Recipient = NonNullable<typeof approvalRequest>["recipients"][number];
+
   if (!approvalRequest || approvalRequest.projectId !== projectId) {
     notFound();
   }
@@ -64,7 +66,7 @@ export default async function ApprovalPage({ params }: ApprovalPageProps) {
           </h2>
           {approvalRequest.recipients.length > 0 ? (
             <div className="space-y-3">
-              {approvalRequest.recipients.map((recipient) => (
+              {approvalRequest.recipients.map((recipient: Recipient) => (
                 <div
                   key={recipient.id}
                   className="flex items-center justify-between border-b border-text/10 pb-3"

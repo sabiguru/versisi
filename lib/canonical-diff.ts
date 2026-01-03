@@ -498,5 +498,5 @@ export async function getDiffSummary(
     return null;
   }
 
-  return proposal.diffSummaryJson as DiffSummaryV1;
+  return proposal.diffSummaryJson as unknown as DiffSummaryV1;
 }

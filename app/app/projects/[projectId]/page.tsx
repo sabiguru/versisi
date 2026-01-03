@@ -45,21 +45,24 @@ export default async function ProjectDetailPage({
     redirect("/app/projects");
   }
 
+  type Membership = NonNullable<typeof project>["memberships"][number];
+  type Proposal = NonNullable<typeof project>["proposals"][number];
+
   // Check user has access
-  const userMembership = project.memberships.find((m) => m.userId === userId);
+  const userMembership = project.memberships.find((m: Membership) => m.userId === userId);
   if (!userMembership) {
     redirect("/app/projects");
   }
 
   const currentVersion = project.scopeVersions[0];
   const draftProposals = project.proposals.filter(
-    (p) => p.status === "DRAFT"
+    (p: Proposal) => p.status === "DRAFT"
   );
   const pendingProposals = project.proposals.filter(
-    (p) => p.status === "AWAITING_APPROVAL"
+    (p: Proposal) => p.status === "AWAITING_APPROVAL"
   );
   const approvedProposals = project.proposals.filter(
-    (p) => p.status === "APPROVED"
+    (p: Proposal) => p.status === "APPROVED"
   );
 
   return (
@@ -141,7 +144,7 @@ export default async function ProjectDetailPage({
               Draft Proposals
             </h2>
             <div className="space-y-3">
-              {draftProposals.map((proposal) => (
+              {draftProposals.map((proposal: Proposal) => (
                 <Link
                   key={proposal.id}
                   href={`/app/projects/${projectId}/proposals/${proposal.id}`}
@@ -181,10 +184,11 @@ export default async function ProjectDetailPage({
               Pending Approval
             </h2>
             <div className="space-y-3">
-              {pendingProposals.map((proposal) => {
+              {pendingProposals.map((proposal: Proposal) => {
                 const request = proposal.approvalRequests[0];
+                type ApprovalRecipient = NonNullable<typeof request>["recipients"][number];
                 const totalApprovals = request?.recipients.filter(
-                  (a) => a.status === "SIGNED"
+                  (a: ApprovalRecipient) => a.status === "SIGNED"
                 ).length || 0;
                 const totalRecipients = request?.recipients.length || 0;
 
@@ -231,7 +235,7 @@ export default async function ProjectDetailPage({
               Approved Changes
             </h2>
             <div className="space-y-3">
-              {approvedProposals.map((proposal) => (
+              {approvedProposals.map((proposal: Proposal) => (
                 <Link
                   key={proposal.id}
                   href={`/app/projects/${projectId}/proposals/${proposal.id}`}

@@ -30,6 +30,8 @@ export default async function VersionPage({ params }: VersionPageProps) {
     notFound();
   }
 
+  type Section = NonNullable<typeof version>["sections"][number];
+
   // Enforce permission
   await requireProjectMember(projectId, user.id);
 
@@ -49,7 +51,7 @@ export default async function VersionPage({ params }: VersionPageProps) {
           </h2>
           {version.sections.length > 0 ? (
             <div className="space-y-4">
-              {version.sections.map((section) => (
+              {version.sections.map((section: Section) => (
                 <div key={section.id} className="border-b border-text/10 pb-4">
                   <h3 className="font-medium text-text">{section.title}</h3>
                   <p className="mt-1 text-sm text-text/60">

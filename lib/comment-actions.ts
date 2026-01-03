@@ -1,3 +1,6 @@
+import { prisma } from "./prisma";
+import { requireUser } from "./session";
+import { revalidatePath } from "next/cache";
 
 // ============================================================================
 // REOPEN COMMENT THREAD

@@ -7,6 +7,7 @@
 
 import { requireProjectMember, requireDevLeader, requireClientLeader, requireWorkspaceAdmin } from "@/lib/rbac";
 import { requireUserId } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 
 // ============================================================================
 // EXAMPLE 1: Protecting a Server Action

@@ -54,6 +54,7 @@ enum ApprovalStatus {
   DECLINED
   CANCELLED
   EXPIRED
+  APPROVED
 }
 
 enum ApprovalRecipientStatus {

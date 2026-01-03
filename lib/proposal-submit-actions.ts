@@ -116,9 +116,10 @@ export async function submitProposalForApproval(proposalId: string): Promise<{
       data: {
         projectId: proposal.projectId,
         action: "PROPOSAL_SUBMITTED",
-        userId,
-        targetType: "PROPOSAL",
-        targetId: proposalId,
+        actorType: "USER",
+        actorUserId: userId,
+        entityType: "PROPOSAL",
+        entityId: proposalId,
         metadata: {
           proposalTitle: proposal.title,
           proposedVersion: `${proposal.proposedMajor}.${proposal.proposedMinor}`,
@@ -179,9 +180,10 @@ export async function recomputeProposalDiff(proposalId: string): Promise<{
       data: {
         projectId: proposal.projectId,
         action: "PROPOSAL_DIFF_RECOMPUTED",
-        userId,
-        targetType: "PROPOSAL",
-        targetId: proposalId,
+        actorType: "USER",
+        actorUserId: userId,
+        entityType: "PROPOSAL",
+        entityId: proposalId,
         metadata: {
           warning: "Manual recomputation - should only be used for debugging",
         },
