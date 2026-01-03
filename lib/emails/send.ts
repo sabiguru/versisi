@@ -38,7 +38,7 @@ export async function sendEmail(options: EmailOptions) {
 
   // PRODUCTION MODE: Send via Resend
   try {
-    const data = await resend.emails.send({
+    const result = await resend.emails.send({
       from,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,
@@ -46,7 +46,12 @@ export async function sendEmail(options: EmailOptions) {
       html: options.html,
     });
 
-    return { success: true, id: data.id };
+    if (result.error) {
+      console.error("Email sending failed:", result.error);
+      throw new Error(result.error.message || "Failed to send email");
+    }
+
+    return { success: true, id: result.data.id };
   } catch (error) {
     console.error("Email sending failed:", error);
     throw new Error("Failed to send email");
