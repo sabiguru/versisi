@@ -28,24 +28,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   providers: [
-    // OAuth Providers
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    // OAuth Providers (only enabled if credentials are configured)
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [Google({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          allowDangerousEmailAccountLinking: true,
+        })]
+      : []),
 
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? [GitHub({
+          clientId: process.env.GITHUB_CLIENT_ID,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET,
+          allowDangerousEmailAccountLinking: true,
+        })]
+      : []),
 
-    GitLab({
-      clientId: process.env.GITLAB_CLIENT_ID!,
-      clientSecret: process.env.GITLAB_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    ...(process.env.GITLAB_CLIENT_ID && process.env.GITLAB_CLIENT_SECRET
+      ? [GitLab({
+          clientId: process.env.GITLAB_CLIENT_ID,
+          clientSecret: process.env.GITLAB_CLIENT_SECRET,
+          allowDangerousEmailAccountLinking: true,
+        })]
+      : []),
 
     // Email OTP Provider
     Credentials({
