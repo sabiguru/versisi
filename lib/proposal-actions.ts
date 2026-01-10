@@ -12,7 +12,7 @@ import { computeCanonicalDiff, persistDiffSummary } from "@/lib/canonical-diff";
 
 export async function createDraftProposal(data: {
   projectId: string;
-  baseScopeVersionId: string;
+  baseScopeVersionId: string | null;
   title: string;
   changeNote: string;
   rationale: string;
@@ -21,21 +21,61 @@ export async function createDraftProposal(data: {
 }) {
   const user = await requireUser();
 
-  // Get base version to determine next version number
-  const baseVersion = await prisma.scopeVersion.findUnique({
-    where: { id: data.baseScopeVersionId },
-  });
+  let baseScopeVersionId = data.baseScopeVersionId;
+  let proposedMajor = 0;
+  let proposedMinor = 1;
 
-  if (!baseVersion) {
-    throw new Error("Base version not found");
+  // If no base version exists, create an initial v0.0 version
+  if (!baseScopeVersionId) {
+    const initialVersion = await prisma.scopeVersion.create({
+      data: {
+        projectId: data.projectId,
+        major: 0,
+        minor: 0,
+        changeNote: "Initial project setup",
+        rationale: "Initial scope version",
+        impactTimeline: "NONE",
+        impactCost: "NONE",
+        risk: "LOW",
+        createdByUserId: user.id,
+      },
+    });
+
+    baseScopeVersionId = initialVersion.id;
+    proposedMajor = 0;
+    proposedMinor = 1;
+
+    await prisma.auditEvent.create({
+      data: {
+        projectId: data.projectId,
+        actorType: "USER",
+        actorUserId: user.id,
+        action: "CREATE",
+        entityType: "SCOPE_VERSION",
+        entityId: initialVersion.id,
+        metadata: { version: "0.0", note: "Initial project setup" },
+      },
+    });
+  } else {
+    // Get base version to determine next version number
+    const baseVersion = await prisma.scopeVersion.findUnique({
+      where: { id: baseScopeVersionId },
+    });
+
+    if (!baseVersion) {
+      throw new Error("Base version not found");
+    }
+
+    proposedMajor = baseVersion.major;
+    proposedMinor = baseVersion.minor + 1;
   }
 
   const proposal = await prisma.changeProposal.create({
     data: {
       projectId: data.projectId,
-      baseScopeVersionId: data.baseScopeVersionId,
-      proposedMajor: baseVersion.major,
-      proposedMinor: baseVersion.minor + 1,
+      baseScopeVersionId: baseScopeVersionId,
+      proposedMajor,
+      proposedMinor,
       title: data.title,
       changeNote: data.changeNote,
       rationale: data.rationale,
@@ -63,7 +103,7 @@ export async function createDraftProposal(data: {
 
   revalidatePath(`/app/projects/${data.projectId}`);
 
-  return proposal;
+  return proposal.id;
 }
 
 // ============================================================================

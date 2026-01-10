@@ -20,18 +20,13 @@ export function CreateProposalButton({ projectId }: { projectId: string }) {
 
     setIsCreating(true);
     try {
-      // Get the latest scope version to use as base
+      // Get the latest scope version to use as base (can be null for new projects)
       const response = await fetch(`/api/projects/${projectId}/current-version`);
       const data = await response.json();
-      
-      if (!data.versionId) {
-        alert("No base version found");
-        return;
-      }
 
       const proposalId = await createDraftProposal({
         projectId,
-        baseScopeVersionId: data.versionId,
+        baseScopeVersionId: data.versionId || null,
         title: title.trim(),
         changeNote: changeNote.trim(),
         rationale: rationale.trim() || "Proposed scope change",
