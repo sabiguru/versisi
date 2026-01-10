@@ -321,6 +321,12 @@ export default function Home() {
               <Link href="/pricing" className="hover:text-gray-900 transition-colors">
                 Pricing
               </Link>
+              <Link href="/terms" className="hover:text-gray-900 transition-colors">
+                Terms
+              </Link>
+              <Link href="/privacy" className="hover:text-gray-900 transition-colors">
+                Privacy
+              </Link>
             </div>
           </div>
           <div className="mt-8 text-center text-xs text-gray-500">

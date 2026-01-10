@@ -11,6 +11,8 @@ const links = [
   { href: "/explore", label: "Explore" },
   { href: "/features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
 ];
 
 export function SiteNav({ bordered = false, priorityLogo = false }: SiteNavProps) {
