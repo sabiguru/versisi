@@ -64,7 +64,7 @@ export default async function AppDashboardPage() {
             Welcome back, {user.name || user.email?.split("@")[0]}
           </h1>
           <p className="mt-1 text-gray-600">
-            Here's what's happening with your projects
+            Here&apos;s what&apos;s happening with your projects
           </p>
         </div>
       </div>
