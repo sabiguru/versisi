@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FolderKanban, Users, Settings, LogOut } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export default async function AppLayout({
   children,
@@ -21,9 +22,7 @@ export default async function AppLayout({
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo/Brand */}
-            <Link href="/app" className="text-xl font-bold text-gray-900">
-              Versisi
-            </Link>
+            <Logo href="/app" className="w-[60px] sm:w-[72px] md:w-[88px] lg:w-[108px]" />
 
             {/* Navigation Links */}
             <div className="flex items-center gap-6">
@@ -73,7 +72,9 @@ export default async function AppLayout({
       </nav>
 
       {/* Main Content */}
-      {children}
+      <div className="max-w-7xl mx-auto">
+        {children}
+      </div>
     </div>
   );
 }
