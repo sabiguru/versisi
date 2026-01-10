@@ -8,9 +8,12 @@ import { getToken } from "next-auth/jwt";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Try to get token with proper configuration
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
+    secureCookie: true, // Use secure cookies in production
   });
   const isAuthenticated = !!token;
 
@@ -20,6 +23,7 @@ export async function proxy(req: NextRequest) {
       pathname,
       hasToken: !!token,
       tokenEmail: token?.email,
+      cookies: req.cookies.getAll().map(c => c.name),
     });
   }
 
