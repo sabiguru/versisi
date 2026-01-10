@@ -10,24 +10,20 @@ export default async function AppDashboardPage() {
   const [projectCount, clientCount, pendingApprovals] = await Promise.all([
     prisma.project.count({
       where: {
-        members: {
+        memberships: {
           some: {
             userId: user.id,
           },
         },
       },
     }),
-    prisma.client.count({
-      where: {
-        createdByUserId: user.id,
-      },
-    }),
+    prisma.clientOrg.count(),
     prisma.approvalRequest.count({
       where: {
         status: "PENDING",
         scopeVersion: {
           project: {
-            members: {
+            memberships: {
               some: {
                 userId: user.id,
               },
@@ -41,7 +37,7 @@ export default async function AppDashboardPage() {
   // Fetch recent projects
   const recentProjects = await prisma.project.findMany({
     where: {
-      members: {
+      memberships: {
         some: {
           userId: user.id,
         },
