@@ -107,13 +107,20 @@ export default async function ProjectDetailPage({
               >
                 Edit Project
               </Link>
-              <CreateProposalButton projectId={projectId} />
+              {!currentVersion ? (
+                <div className="flex flex-col items-end gap-1">
+                  <CreateProposalButton projectId={projectId} />
+                  <span className="text-xs text-text/50">Start by defining scope</span>
+                </div>
+              ) : (
+                <CreateProposalButton projectId={projectId} />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Current Version */}
-        {currentVersion && (
+        {/* Current Version or Getting Started */}
+        {currentVersion ? (
           <div className="mb-8 rounded-lg border border-text/10 bg-white p-6">
             <h2 className="mb-4 font-heading text-xl font-semibold text-text">
               Current Scope Version
@@ -140,6 +147,49 @@ export default async function ProjectDetailPage({
                 >
                   View full version →
                 </Link>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8 rounded-lg border border-accent/20 bg-accent/5 p-6">
+            <h2 className="mb-3 font-heading text-xl font-semibold text-text">
+              Getting Started
+            </h2>
+            <p className="text-sm text-text/70 mb-4">
+              This project doesn't have any scope defined yet. Create your first proposal to define the project scope, add features, and outline deliverables.
+            </p>
+            <div className="space-y-2 text-sm text-text/60">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
+                  1
+                </span>
+                <div>
+                  <strong className="text-text">Create a proposal</strong> - Click "Create Proposal" above to start
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
+                  2
+                </span>
+                <div>
+                  <strong className="text-text">Add scope sections</strong> - Organize your features into logical sections
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
+                  3
+                </span>
+                <div>
+                  <strong className="text-text">Define scope items</strong> - Add features with descriptions and acceptance criteria
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
+                  4
+                </span>
+                <div>
+                  <strong className="text-text">Submit for approval</strong> - Send to client for review and signatures
+                </div>
               </div>
             </div>
           </div>
