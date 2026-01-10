@@ -20,8 +20,10 @@ export function LoginForm() {
   const handleSocialSignIn = async (provider: string) => {
     setIsLoading(true);
     try {
-      await signIn(provider, { callbackUrl });
-    } catch {
+      const result = await signIn(provider, { callbackUrl });
+      console.log("Sign in result:", result);
+    } catch (error) {
+      console.error("Sign in error:", error);
       setError("Failed to sign in. Please try again.");
       setIsLoading(false);
     }
