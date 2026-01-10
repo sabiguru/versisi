@@ -48,11 +48,14 @@ export default async function ProjectDetailPage({
   type Membership = NonNullable<typeof project>["memberships"][number];
   type Proposal = NonNullable<typeof project>["proposals"][number];
 
-  // Check user has access
+  // Check user has access and get their role
   const userMembership = project.memberships.find((m: Membership) => m.userId === userId);
   if (!userMembership) {
     redirect("/app/projects");
   }
+
+  const userRole = userMembership.role; // LEADER | MEMBER | VIEWER
+  const userParty = userMembership.party; // DEV | CLIENT
 
   const currentVersion = project.scopeVersions[0];
   const draftProposals = project.proposals.filter(
@@ -98,15 +101,28 @@ export default async function ProjectDetailPage({
                     Current: v{currentVersion.major}.{currentVersion.minor}
                   </span>
                 )}
+                <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-blue-700">
+                  Your Role: {userRole === "LEADER" ? "Leader" : userRole === "MEMBER" ? "Member" : "Viewer"} ({userParty === "DEV" ? "Developer" : "Client"})
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Link
-                href={`/app/projects/${projectId}/edit`}
-                className="rounded-md border border-text/20 bg-white px-4 py-2 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
-              >
-                Edit Project
-              </Link>
+              {userRole === "LEADER" && (
+                <>
+                  <Link
+                    href={`/app/projects/${projectId}/team`}
+                    className="rounded-md border border-text/20 bg-white px-4 py-2 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+                  >
+                    Manage Team
+                  </Link>
+                  <Link
+                    href={`/app/projects/${projectId}/edit`}
+                    className="rounded-md border border-text/20 bg-white px-4 py-2 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+                  >
+                    Edit Project
+                  </Link>
+                </>
+              )}
               {!currentVersion ? (
                 <div className="flex flex-col items-end gap-1">
                   <CreateProposalButton projectId={projectId} />

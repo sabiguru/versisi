@@ -39,6 +39,7 @@ export function EditProjectForm({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState(project.status);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -198,7 +199,8 @@ export function EditProjectForm({
               <select
                 id="status"
                 name="status"
-                defaultValue={project.status}
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
                 className="w-full rounded-md border border-text/20 px-4 py-2 text-text focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               >
                 <option value="DRAFT">Draft</option>
@@ -207,6 +209,24 @@ export function EditProjectForm({
                 <option value="ARCHIVED">Archived</option>
               </select>
             </div>
+
+            {selectedStatus === "ARCHIVED" && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                <h3 className="text-sm font-medium text-orange-900 mb-2">
+                  Archive Reason
+                </h3>
+                <textarea
+                  id="archiveReason"
+                  name="archiveReason"
+                  rows={3}
+                  className="w-full rounded-md border border-orange-300 px-4 py-2 text-text focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  placeholder="Why is this project being archived? (e.g., Project completed, Client cancelled, Moved to different platform)"
+                />
+                <p className="mt-2 text-xs text-orange-700">
+                  Provide a reason for archiving this project. This will be recorded for future reference.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

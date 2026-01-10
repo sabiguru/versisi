@@ -12,6 +12,7 @@ const updateProjectSchema = z.object({
   clientOrgId: z.string().optional(),
   workspaceId: z.string().optional(),
   status: z.enum(["DRAFT", "ACTIVE", "RELEASED", "ARCHIVED"]),
+  archiveReason: z.string().optional(),
 });
 
 export async function updateProject(projectId: string, formData: FormData) {
@@ -41,6 +42,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     clientOrgId: formData.get("clientOrgId") || undefined,
     workspaceId: formData.get("workspaceId") || undefined,
     status: formData.get("status"),
+    archiveReason: formData.get("archiveReason") || undefined,
   });
 
   if (!parsed.success) {
@@ -51,16 +53,25 @@ export async function updateProject(projectId: string, formData: FormData) {
   }
 
   try {
+    const updateData: any = {
+      name: parsed.data.name,
+      clientSummary: parsed.data.clientSummary,
+      internalDescription: parsed.data.internalDescription || null,
+      clientOrgId: parsed.data.clientOrgId || null,
+      workspaceId: parsed.data.workspaceId || null,
+      status: parsed.data.status,
+    };
+
+    // If archiving and reason is provided, store it in internal description
+    if (parsed.data.status === "ARCHIVED" && parsed.data.archiveReason) {
+      const existingDesc = updateData.internalDescription || "";
+      const archiveNote = `\n\n[ARCHIVED: ${new Date().toISOString().split("T")[0]}]\nReason: ${parsed.data.archiveReason}`;
+      updateData.internalDescription = (existingDesc + archiveNote).trim();
+    }
+
     await prisma.project.update({
       where: { id: projectId },
-      data: {
-        name: parsed.data.name,
-        clientSummary: parsed.data.clientSummary,
-        internalDescription: parsed.data.internalDescription || null,
-        clientOrgId: parsed.data.clientOrgId || null,
-        workspaceId: parsed.data.workspaceId || null,
-        status: parsed.data.status,
-      },
+      data: updateData,
     });
 
     revalidatePath(`/app/projects/${projectId}`);
