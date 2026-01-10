@@ -24,9 +24,6 @@ export default async function SettingsPage() {
     },
   });
 
-  // Check if user has password set (vs OAuth only)
-  const hasPassword = !!user.passwordHash;
-
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -196,27 +193,17 @@ export default async function SettingsPage() {
           {/* Security Section */}
           <section id="security" className="bg-white rounded-lg border border-text/10 p-6">
             <h2 className="font-heading text-xl font-semibold text-text mb-6">
-              Security Settings
+              Security & Authentication
             </h2>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-text">Password</p>
-                  <p className="text-xs text-text/60 mt-1">
-                    {hasPassword
-                      ? "Last updated " +
-                        new Date(user.updatedAt).toLocaleDateString()
-                      : "No password set (OAuth only)"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
-                  disabled
-                >
-                  {hasPassword ? "Change" : "Set Password"} (Coming Soon)
-                </button>
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-sm font-medium text-text mb-2">
+                  Authentication Methods
+                </p>
+                <p className="text-xs text-text/60">
+                  This account uses passwordless authentication via email OTP and social login providers (Google, GitHub, GitLab).
+                </p>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -225,7 +212,7 @@ export default async function SettingsPage() {
                     Connected Accounts
                   </p>
                   <p className="text-xs text-text/60 mt-1">
-                    Manage social login providers
+                    Manage social login providers (Google, GitHub, GitLab)
                   </p>
                 </div>
                 <button
@@ -240,10 +227,32 @@ export default async function SettingsPage() {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-text">
-                    Two-Factor Authentication
+                    Email Verification
                   </p>
                   <p className="text-xs text-text/60 mt-1">
-                    Add an extra layer of security
+                    {user.emailVerified
+                      ? "Your email is verified"
+                      : "Verify your email for additional security"}
+                  </p>
+                </div>
+                {!user.emailVerified && (
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
+                    disabled
+                  >
+                    Verify (Coming Soon)
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-text">
+                    Session Management
+                  </p>
+                  <p className="text-xs text-text/60 mt-1">
+                    View and manage active sessions
                   </p>
                 </div>
                 <button
@@ -251,7 +260,7 @@ export default async function SettingsPage() {
                   className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
                   disabled
                 >
-                  Enable (Coming Soon)
+                  Manage (Coming Soon)
                 </button>
               </div>
             </div>
