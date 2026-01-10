@@ -21,12 +21,10 @@ export default async function AppDashboardPage() {
     prisma.approvalRequest.count({
       where: {
         status: "PENDING",
-        scopeVersion: {
-          project: {
-            memberships: {
-              some: {
-                userId: user.id,
-              },
+        project: {
+          memberships: {
+            some: {
+              userId: user.id,
             },
           },
         },
