@@ -1,7 +1,10 @@
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { User, Mail, Calendar, Shield, Key, Bell, Database } from "lucide-react";
+import { Database } from "lucide-react";
+import { ProfileSection } from "./profile-section";
+import { ConnectedAccounts } from "./connected-accounts";
+import { SessionManagement } from "./session-management";
+import { getConnectedAccounts, getActiveSessions } from "./actions";
 
 export default async function SettingsPage() {
   const sessionUser = await requireUser();
@@ -39,6 +42,12 @@ export default async function SettingsPage() {
     },
   });
 
+  // Fetch connected accounts
+  const connectedAccounts = await getConnectedAccounts();
+
+  // Fetch active sessions
+  const activeSessions = await getActiveSessions();
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -60,7 +69,6 @@ export default async function SettingsPage() {
                   href="#profile"
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-text hover:bg-gray-50 transition-colors"
                 >
-                  <User className="w-4 h-4" />
                   <span className="font-medium">Profile</span>
                 </a>
               </li>
@@ -69,7 +77,6 @@ export default async function SettingsPage() {
                   href="#account"
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-text hover:bg-gray-50 transition-colors"
                 >
-                  <Shield className="w-4 h-4" />
                   <span className="font-medium">Account</span>
                 </a>
               </li>
@@ -78,7 +85,6 @@ export default async function SettingsPage() {
                   href="#security"
                   className="flex items-center gap-3 px-3 py-2 rounded-lg text-text hover:bg-gray-50 transition-colors"
                 >
-                  <Key className="w-4 h-4" />
                   <span className="font-medium">Security</span>
                 </a>
               </li>
@@ -98,63 +104,11 @@ export default async function SettingsPage() {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Section */}
-          <section id="profile" className="bg-white rounded-lg border border-text/10 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-semibold text-text">
-                Profile Information
-              </h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-2">
-                    <Mail className="w-4 h-4 inline mr-2" />
-                    Email Address
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 rounded-lg border border-text/10">
-                    <p className="text-text">{user.email}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-2">
-                    <User className="w-4 h-4 inline mr-2" />
-                    Display Name
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 rounded-lg border border-text/10">
-                    <p className="text-text">{user.name || "Not set"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text/70 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-2" />
-                  Member Since
-                </label>
-                <div className="px-4 py-2 bg-gray-50 rounded-lg border border-text/10">
-                  <p className="text-text">
-                    {new Date(user.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-text/10">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-gray-50 transition-colors"
-                  disabled
-                >
-                  Edit Profile (Coming Soon)
-                </button>
-              </div>
-            </div>
-          </section>
+          <ProfileSection
+            email={user.email}
+            name={user.name}
+            createdAt={user.createdAt}
+          />
 
           {/* Account Section */}
           <section id="account" className="bg-white rounded-lg border border-text/10 p-6">
@@ -205,7 +159,7 @@ export default async function SettingsPage() {
               Security & Authentication
             </h2>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-sm font-medium text-text mb-2">
                   Authentication Methods
@@ -215,40 +169,18 @@ export default async function SettingsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-text">
-                    Connected Accounts
-                  </p>
-                  <p className="text-xs text-text/60 mt-1">
-                    Manage social login providers (Google, GitHub, GitLab)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
-                  disabled
-                >
-                  Manage (Coming Soon)
-                </button>
+              <div>
+                <h3 className="text-sm font-medium text-text mb-3">
+                  Connected Accounts
+                </h3>
+                <ConnectedAccounts accounts={connectedAccounts} />
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-text">
-                    Session Management
-                  </p>
-                  <p className="text-xs text-text/60 mt-1">
-                    View and manage active sessions
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
-                  disabled
-                >
-                  Manage (Coming Soon)
-                </button>
+              <div>
+                <h3 className="text-sm font-medium text-text mb-3">
+                  Session Management
+                </h3>
+                <SessionManagement sessions={activeSessions} />
               </div>
             </div>
           </section>
