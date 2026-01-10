@@ -118,7 +118,7 @@ export default async function AppDashboardPage() {
             <div className="space-y-3">
               <Link
                 href="/app/projects/new"
-                className="flex items-center gap-3 p-3 rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg bg-accent !text-white hover:bg-accent/90 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium">New Project</span>
@@ -167,7 +167,7 @@ export default async function AppDashboardPage() {
                 <p className="text-text/60 mb-4">No projects yet</p>
                 <Link
                   href="/app/projects/new"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-accent !text-white rounded-lg hover:bg-accent/90 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Create your first project
