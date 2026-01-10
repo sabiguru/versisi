@@ -49,7 +49,7 @@ export default function PricingPage() {
               <h2 className="font-heading text-2xl font-semibold text-text">
                 Pro
               </h2>
-              <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-white">
+              <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium !text-white">
                 Coming Soon
               </span>
             </div>
@@ -80,7 +80,7 @@ export default function PricingPage() {
         <div className="mt-12 text-center">
           <Link
             href="/signup"
-            className="inline-block rounded-md bg-accent px-6 py-3 font-medium text-white transition-colors hover:bg-accent/90"
+            className="inline-block rounded-md bg-accent px-6 py-3 font-medium !text-white transition-colors hover:bg-accent/90"
           >
             Get Started
           </Link>

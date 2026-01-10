@@ -165,7 +165,7 @@ export function ProjectWizard() {
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full ${
                   index === currentStep
-                    ? "bg-accent text-white"
+                    ? "bg-accent !text-white"
                     : index < currentStep
                       ? "bg-accent/20 text-accent"
                       : "bg-text/10 text-text/40"
@@ -688,7 +688,7 @@ export function ProjectWizard() {
             type="button"
             onClick={nextStep}
             disabled={!canProceed()}
-            className="rounded-md bg-accent px-6 py-2 font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-6 py-2 font-medium !text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue
           </button>
@@ -697,7 +697,7 @@ export function ProjectWizard() {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !canProceed()}
-            className="rounded-md bg-accent px-6 py-2 font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-6 py-2 font-medium !text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Creating..." : "Create Project"}
           </button>

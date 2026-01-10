@@ -226,7 +226,7 @@ export default function Home() {
 
           <div className="space-y-10">
             <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent !text-white flex items-center justify-center text-sm font-semibold">
                 1
               </div>
               <div>
@@ -240,7 +240,7 @@ export default function Home() {
             </div>
 
             <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent !text-white flex items-center justify-center text-sm font-semibold">
                 2
               </div>
               <div>
@@ -254,7 +254,7 @@ export default function Home() {
             </div>
 
             <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent !text-white flex items-center justify-center text-sm font-semibold">
                 3
               </div>
               <div>
@@ -268,7 +268,7 @@ export default function Home() {
             </div>
 
             <div className="flex gap-6 items-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent !text-white flex items-center justify-center text-sm font-semibold">
                 4
               </div>
               <div>
