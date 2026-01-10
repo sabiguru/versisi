@@ -9,23 +9,12 @@ import { getToken } from "next-auth/jwt";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Try to get token with proper configuration
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
-    secureCookie: true, // Use secure cookies in production
+    secureCookie: true,
   });
   const isAuthenticated = !!token;
-
-  // Debug logging (remove after fixing)
-  if (pathname.startsWith("/app")) {
-    console.log("Proxy check for /app:", {
-      pathname,
-      hasToken: !!token,
-      tokenEmail: token?.email,
-      cookies: req.cookies.getAll().map(c => c.name),
-    });
-  }
 
   // Public routes (no auth required)
   const publicRoutes = [
