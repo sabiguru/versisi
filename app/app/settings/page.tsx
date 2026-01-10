@@ -4,7 +4,22 @@ import Link from "next/link";
 import { User, Mail, Calendar, Shield, Key, Bell, Database } from "lucide-react";
 
 export default async function SettingsPage() {
-  const user = await requireUser();
+  const sessionUser = await requireUser();
+
+  // Fetch full user data from database
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUser.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
 
   // Fetch user's project memberships count
   const projectCount = await prisma.projectMembership.count({
@@ -100,12 +115,6 @@ export default async function SettingsPage() {
                   <div className="px-4 py-2 bg-gray-50 rounded-lg border border-text/10">
                     <p className="text-text">{user.email}</p>
                   </div>
-                  {user.emailVerified && (
-                    <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
-                      Verified
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -222,28 +231,6 @@ export default async function SettingsPage() {
                 >
                   Manage (Coming Soon)
                 </button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-text">
-                    Email Verification
-                  </p>
-                  <p className="text-xs text-text/60 mt-1">
-                    {user.emailVerified
-                      ? "Your email is verified"
-                      : "Verify your email for additional security"}
-                  </p>
-                </div>
-                {!user.emailVerified && (
-                  <button
-                    type="button"
-                    className="px-4 py-2 text-sm font-medium text-text border border-text/20 rounded-lg hover:bg-white transition-colors"
-                    disabled
-                  >
-                    Verify (Coming Soon)
-                  </button>
-                )}
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
