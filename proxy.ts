@@ -14,6 +14,15 @@ export async function proxy(req: NextRequest) {
   });
   const isAuthenticated = !!token;
 
+  // Debug logging (remove after fixing)
+  if (pathname.startsWith("/app")) {
+    console.log("Proxy check for /app:", {
+      pathname,
+      hasToken: !!token,
+      tokenEmail: token?.email,
+    });
+  }
+
   // Public routes (no auth required)
   const publicRoutes = [
     "/",
