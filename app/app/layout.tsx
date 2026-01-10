@@ -114,7 +114,7 @@ export default async function AppLayout({
                     <p className="text-gray-500 truncate max-w-[120px]">{session.user?.email}</p>
                   </div>
                   <Link
-                    href="/api/auth/signout"
+                    href="/logout"
                     className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Sign out"
                   >
