@@ -100,7 +100,15 @@ export default async function ProjectDetailPage({
                 )}
               </div>
             </div>
-            <CreateProposalButton projectId={projectId} />
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/app/projects/${projectId}/edit`}
+                className="rounded-md border border-text/20 bg-white px-4 py-2 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+              >
+                Edit Project
+              </Link>
+              <CreateProposalButton projectId={projectId} />
+            </div>
           </div>
         </div>
 
