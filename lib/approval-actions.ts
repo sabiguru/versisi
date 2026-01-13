@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Approval & Signature Actions
  *

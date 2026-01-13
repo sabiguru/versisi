@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ProposalEditor } from "@/components/proposals/proposal-editor";
 import { ProposalHeader } from "@/components/proposals/proposal-header";
+import { DiffViewer } from "@/components/proposals/diff-viewer";
+import { DiffSummaryV1 } from "@/lib/canonical-diff";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -67,7 +69,7 @@ export default async function ProposalEditPage({
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Editor */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-8">
             <ProposalEditor
               proposalId={proposal.id}
               sections={proposal.sections.map((s: Section) => ({
@@ -85,6 +87,20 @@ export default async function ProposalEditPage({
               }))}
               isBaseEmpty={isBaseEmpty}
             />
+
+            {/* Change Summary */}
+            {!isBaseEmpty && proposal.diffSummaryJson && (
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h2 className="font-heading text-xl font-semibold text-gray-900 mb-4">
+                  Change Summary
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Preview of changes compared to v{proposal.baseScopeVersion.major}.
+                  {proposal.baseScopeVersion.minor}
+                </p>
+                <DiffViewer diffSummary={proposal.diffSummaryJson as unknown as DiffSummaryV1} />
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}

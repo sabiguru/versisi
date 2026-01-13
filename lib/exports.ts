@@ -326,3 +326,226 @@ export async function generateProposalXLSX(proposalId: string): Promise<Buffer> 
 
   return await workbook.xlsx.writeBuffer() as unknown as Buffer;
 }
+
+/**
+ * Fetch all export data for a scope version
+ * Read-only - never mutates data
+ */
+export async function getScopeVersionExportData(versionId: string) {
+  const version = await prisma.scopeVersion.findUnique({
+    where: { id: versionId },
+    include: {
+      project: true,
+      basedOnScopeVersion: true,
+      createdFromProposal: true,
+      sections: {
+        include: {
+          items: {
+            orderBy: { orderIndex: "asc" },
+          },
+        },
+        orderBy: { orderIndex: "asc" },
+      },
+    },
+  });
+
+  if (!version) {
+    throw new Error("Scope version not found");
+  }
+
+  return version;
+}
+
+/**
+ * Generate PDF export for scope version
+ */
+export async function generateScopeVersionPDF(versionId: string): Promise<Buffer> {
+  const data = await getScopeVersionExportData(versionId);
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50 });
+    const buffers: Buffer[] = [];
+
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+    doc.on("error", reject);
+
+    // Header
+    doc.fontSize(24).font("Helvetica-Bold").text("Scope Agreement Version", { align: "center" });
+    doc.moveDown();
+
+    // Version Info
+    doc.fontSize(16).font("Helvetica-Bold").text("Version Information");
+    doc.fontSize(10).font("Helvetica");
+    doc.text(`Version: ${data.major}.${data.minor}`);
+    if (data.basedOnScopeVersion) {
+      doc.text(`Based on Version: ${data.basedOnScopeVersion.major}.${data.basedOnScopeVersion.minor}`);
+    }
+    if (data.approvedAt) {
+      doc.text(`Approved: ${new Date(data.approvedAt).toLocaleString()}`);
+    }
+    doc.text(`Project: ${data.project.name}`);
+    doc.moveDown();
+
+    // Metadata
+    doc.fontSize(16).font("Helvetica-Bold").text("Version Details");
+    doc.fontSize(10).font("Helvetica");
+    doc.text(`Change Note: ${data.changeNote || "N/A"}`);
+    doc.text(`Rationale: ${data.rationale || "N/A"}`);
+    doc.text(`Impact (Timeline): ${data.impactTimeline || "N/A"}`);
+    doc.text(`Impact (Cost): ${data.impactCost || "N/A"}`);
+    doc.text(`Risk: ${data.risk || "N/A"}`);
+    doc.moveDown();
+
+    // Sections
+    doc.fontSize(16).font("Helvetica-Bold").text("Scope");
+    doc.moveDown(0.5);
+
+    for (const section of data.sections) {
+      doc.fontSize(14).font("Helvetica-Bold").text(section.title);
+      doc.moveDown(0.3);
+
+      for (const item of section.items) {
+        doc.fontSize(11).font("Helvetica-Bold").text(`• ${item.title}`);
+        doc.fontSize(10).font("Helvetica").text(`  ${item.description}`, { indent: 20 });
+        if (item.acceptanceCriteria) {
+          doc.fontSize(9).font("Helvetica-Oblique").text(`  Acceptance: ${item.acceptanceCriteria}`, { indent: 20 });
+        }
+        doc.fontSize(9).text(`  Priority: ${item.priority}`, { indent: 20 });
+        doc.moveDown(0.3);
+      }
+      doc.moveDown();
+    }
+
+    // Footer
+    doc.addPage();
+    doc.fontSize(10).font("Helvetica-Oblique").text("Export Metadata", { align: "center" });
+    doc.text(`Generated: ${new Date().toISOString()}`, { align: "center" });
+    doc.text(`Version ID: ${data.id}`, { align: "center" });
+    doc.text("This export is an artifact only and does not mutate data.", { align: "center" });
+
+    doc.end();
+  });
+}
+
+/**
+ * Generate DOCX export for scope version
+ */
+export async function generateScopeVersionDOCX(versionId: string): Promise<Buffer> {
+  const data = await getScopeVersionExportData(versionId);
+
+  const children: any[] = [];
+
+  // Title
+  children.push(
+    new Paragraph({
+      text: "Scope Agreement Version",
+      heading: HeadingLevel.HEADING_1,
+      alignment: AlignmentType.CENTER,
+    })
+  );
+
+  // Version Info
+  children.push(new Paragraph({ text: "Version Information", heading: HeadingLevel.HEADING_2 }));
+  children.push(new Paragraph({ text: `Version: ${data.major}.${data.minor}` }));
+  if (data.basedOnScopeVersion) {
+    children.push(new Paragraph({ text: `Based on Version: ${data.basedOnScopeVersion.major}.${data.basedOnScopeVersion.minor}` }));
+  }
+  if (data.approvedAt) {
+    children.push(new Paragraph({ text: `Approved: ${new Date(data.approvedAt).toLocaleString()}` }));
+  }
+  children.push(new Paragraph({ text: `Project: ${data.project.name}` }));
+  children.push(new Paragraph({ text: "" }));
+
+  // Version Details
+  children.push(new Paragraph({ text: "Version Details", heading: HeadingLevel.HEADING_2 }));
+  children.push(new Paragraph({ text: `Change Note: ${data.changeNote || "N/A"}` }));
+  children.push(new Paragraph({ text: `Rationale: ${data.rationale || "N/A"}` }));
+  children.push(new Paragraph({ text: `Impact (Timeline): ${data.impactTimeline || "N/A"}` }));
+  children.push(new Paragraph({ text: `Impact (Cost): ${data.impactCost || "N/A"}` }));
+  children.push(new Paragraph({ text: `Risk: ${data.risk || "N/A"}` }));
+  children.push(new Paragraph({ text: "" }));
+
+  // Sections
+  children.push(new Paragraph({ text: "Scope", heading: HeadingLevel.HEADING_2 }));
+  for (const section of data.sections) {
+    children.push(new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_3 }));
+    for (const item of section.items) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: item.title, bold: true })],
+        })
+      );
+      children.push(new Paragraph({ text: item.description }));
+      if (item.acceptanceCriteria) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: `Acceptance: ${item.acceptanceCriteria}`, italics: true })],
+          })
+        );
+      }
+      children.push(new Paragraph({ text: `Priority: ${item.priority}` }));
+      children.push(new Paragraph({ text: "" }));
+    }
+  }
+
+  // Export Metadata
+  children.push(new Paragraph({ text: "Export Metadata", heading: HeadingLevel.HEADING_2 }));
+  children.push(new Paragraph({ text: `Generated: ${new Date().toISOString()}` }));
+  children.push(new Paragraph({ text: `Version ID: ${data.id}` }));
+
+  const doc = new Document({
+    sections: [{ children }],
+  });
+
+  return await Packer.toBuffer(doc);
+}
+
+/**
+ * Generate XLSX export for scope version
+ */
+export async function generateScopeVersionXLSX(versionId: string): Promise<Buffer> {
+  const data = await getScopeVersionExportData(versionId);
+
+  const workbook = new ExcelJS.Workbook();
+
+  // Metadata Sheet
+  const metaSheet = workbook.addWorksheet("Metadata");
+  metaSheet.addRow(["Scope Agreement Version Export"]);
+  metaSheet.addRow([]);
+  metaSheet.addRow(["Version", `${data.major}.${data.minor}`]);
+  if (data.basedOnScopeVersion) {
+    metaSheet.addRow(["Based on Version", `${data.basedOnScopeVersion.major}.${data.basedOnScopeVersion.minor}`]);
+  }
+  if (data.approvedAt) {
+    metaSheet.addRow(["Approved", new Date(data.approvedAt).toISOString()]);
+  }
+  metaSheet.addRow(["Project", data.project.name]);
+  metaSheet.addRow(["Change Note", data.changeNote || "N/A"]);
+  metaSheet.addRow(["Rationale", data.rationale || "N/A"]);
+  metaSheet.addRow(["Impact (Timeline)", data.impactTimeline || "N/A"]);
+  metaSheet.addRow(["Impact (Cost)", data.impactCost || "N/A"]);
+  metaSheet.addRow(["Risk", data.risk || "N/A"]);
+  metaSheet.addRow([]);
+  metaSheet.addRow(["Generated", new Date().toISOString()]);
+  metaSheet.addRow(["Version ID", data.id]);
+
+  // Scope Items Sheet
+  const itemsSheet = workbook.addWorksheet("Scope Items");
+  itemsSheet.addRow(["Section", "Item Title", "Description", "Acceptance Criteria", "Priority", "Order"]);
+
+  for (const section of data.sections) {
+    for (const item of section.items) {
+      itemsSheet.addRow([
+        section.title,
+        item.title,
+        item.description,
+        item.acceptanceCriteria || "",
+        item.priority,
+        item.orderIndex,
+      ]);
+    }
+  }
+
+  return await workbook.xlsx.writeBuffer() as unknown as Buffer;
+}

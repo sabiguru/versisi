@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 interface PortalHomeProps {
   params: Promise<{ publicProjectKey: string }>;
@@ -26,6 +27,26 @@ export default async function PortalHomePage({ params }: PortalHomeProps) {
   }
 
   const currentVersion = project.scopeVersions[0];
+
+  // Get pending approval requests for this project
+  const pendingApprovals = await prisma.approvalRequest.findMany({
+    where: {
+      projectId: project.id,
+      status: { in: ["PENDING", "VIEWED"] },
+    },
+    include: {
+      proposal: true,
+      recipients: {
+        where: {
+          party: "CLIENT",
+          status: { in: ["PENDING", "VIEWED"] },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  type ApprovalRequest = typeof pendingApprovals[number];
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,7 +83,43 @@ export default async function PortalHomePage({ params }: PortalHomeProps) {
             <h2 className="mb-4 font-heading text-xl font-semibold text-text">
               Pending Approvals
             </h2>
-            <p className="text-sm text-text/60">No pending approvals</p>
+            {pendingApprovals.length > 0 ? (
+              <div className="space-y-4">
+                {pendingApprovals.map((approval: ApprovalRequest) => (
+                  <div
+                    key={approval.id}
+                    className="rounded-lg border border-orange-200 bg-orange-50 p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-medium text-text">
+                          {approval.proposal.title}
+                        </h3>
+                        <p className="mt-1 text-sm text-text/70">
+                          Version {approval.proposal.proposedMajor}.{approval.proposal.proposedMinor}
+                        </p>
+                        <p className="mt-2 text-sm text-text/60">
+                          {approval.recipients.length} client recipient(s) pending signature
+                        </p>
+                        {approval.sentAt && (
+                          <p className="mt-1 text-xs text-text/50">
+                            Sent: {new Date(approval.sentAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <Link
+                        href={`/p/${publicProjectKey}/approve/${approval.id}`}
+                        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors"
+                      >
+                        Review & Sign
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-text/60">No pending approvals</p>
+            )}
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/session";
 import { requireProjectMember } from "@/lib/rbac";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { ApprovalActionsClient } from "./approval-actions-client";
 
 interface ApprovalPageProps {
   params: Promise<{ projectId: string; approvalRequestId: string }>;
@@ -34,6 +35,16 @@ export default async function ApprovalPage({ params }: ApprovalPageProps) {
   // Enforce permission
   await requireProjectMember(projectId, user.id);
 
+  // Check if user is a leader
+  const userMembership = await prisma.projectMembership.findFirst({
+    where: {
+      projectId,
+      userId: user.id,
+      role: "LEADER",
+    },
+  });
+  const isLeader = !!userMembership;
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -60,6 +71,13 @@ export default async function ApprovalPage({ params }: ApprovalPageProps) {
       </div>
 
       <div className="space-y-6">
+        <ApprovalActionsClient
+          approvalRequestId={approvalRequestId}
+          projectId={projectId}
+          status={approvalRequest.status}
+          isLeader={isLeader}
+        />
+
         <div className="rounded-lg border border-text/10 bg-white p-6">
           <h2 className="mb-4 font-heading text-xl font-semibold text-text">
             Recipients

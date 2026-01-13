@@ -3,6 +3,8 @@ import { requireUserId } from "@/lib/session";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CreateProposalButton } from "@/components/proposals/create-proposal-button";
+import { PortalLinkGenerator } from "./portal-link-generator";
+import { Download } from "lucide-react";
 
 export default async function ProjectDetailPage({
   params,
@@ -107,6 +109,12 @@ export default async function ProjectDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Link
+                href={`/app/projects/${projectId}/audit`}
+                className="rounded-md border border-text/20 bg-white px-4 py-2 text-sm font-medium text-text hover:bg-gray-50 transition-colors"
+              >
+                Audit Log
+              </Link>
               {userRole === "LEADER" && (
                 <>
                   <Link
@@ -156,19 +164,44 @@ export default async function ProjectDetailPage({
                 <span className="font-medium">Rationale:</span>{" "}
                 {currentVersion.rationale}
               </div>
-              <div className="mt-4 flex items-center gap-4">
-                <Link
-                  href={`/app/projects/${projectId}/versions/${currentVersion.id}`}
-                  className="text-accent hover:underline"
-                >
-                  View full version →
-                </Link>
-                <Link
-                  href={`/app/projects/${projectId}/versions`}
-                  className="text-accent hover:underline"
-                >
-                  View all versions →
-                </Link>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Link
+                    href={`/app/projects/${projectId}/versions/${currentVersion.id}`}
+                    className="text-accent hover:underline"
+                  >
+                    View full version →
+                  </Link>
+                  <Link
+                    href={`/app/projects/${projectId}/versions`}
+                    className="text-accent hover:underline"
+                  >
+                    View all versions →
+                  </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/api/versions/${currentVersion.id}/export/pdf`}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    <Download className="w-3 h-3" />
+                    PDF
+                  </Link>
+                  <Link
+                    href={`/api/versions/${currentVersion.id}/export/docx`}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    <Download className="w-3 h-3" />
+                    DOCX
+                  </Link>
+                  <Link
+                    href={`/api/versions/${currentVersion.id}/export/xlsx`}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    <Download className="w-3 h-3" />
+                    XLSX
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -214,6 +247,17 @@ export default async function ProjectDetailPage({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Portal Link Generator */}
+        {userRole === "LEADER" && (
+          <div className="mb-8">
+            <PortalLinkGenerator
+              projectId={projectId}
+              portalPublicKey={project.portalPublicKey}
+              portalEnabled={project.portalEnabled}
+            />
           </div>
         )}
 

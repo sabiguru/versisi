@@ -6,11 +6,7 @@ import {
   Users,
   Settings,
   LogOut,
-  Home,
-  Briefcase,
-  FileCheck,
-  Bell,
-  HelpCircle
+  Home
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 
@@ -60,33 +56,8 @@ export default async function AppLayout({
                 <span className="font-medium hidden sm:inline">Clients</span>
               </Link>
 
-              <Link
-                href="/app/workspaces"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Briefcase className="w-4 h-4" />
-                <span className="font-medium hidden sm:inline">Workspaces</span>
-              </Link>
-
-              <Link
-                href="/app/approvals"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <FileCheck className="w-4 h-4" />
-                <span className="font-medium hidden sm:inline">Approvals</span>
-              </Link>
-
               {/* Right Side Menu */}
               <div className="flex items-center gap-1 ml-4 pl-4 border-l border-gray-200">
-                <Link
-                  href="/app/notifications"
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Notifications"
-                >
-                  <Bell className="w-4 h-4" />
-                  {/* Notification badge - can be conditionally shown */}
-                  {/* <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span> */}
-                </Link>
 
                 <Link
                   href="/app/settings"
@@ -94,15 +65,6 @@ export default async function AppLayout({
                   title="Settings"
                 >
                   <Settings className="w-4 h-4" />
-                </Link>
-
-                <Link
-                  href="/help"
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Help & Documentation"
-                  target="_blank"
-                >
-                  <HelpCircle className="w-4 h-4" />
                 </Link>
 
                 {/* User Menu Dropdown */}

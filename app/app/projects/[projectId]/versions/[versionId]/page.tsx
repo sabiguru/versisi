@@ -3,6 +3,8 @@ import { requireProjectMember } from "@/lib/rbac";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { CommentList } from "@/components/comments/comment-list";
+import { Download } from "lucide-react";
+import Link from "next/link";
 
 interface VersionPageProps {
   params: Promise<{ projectId: string; versionId: string }>;
@@ -38,10 +40,37 @@ export default async function VersionPage({ params }: VersionPageProps) {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="font-heading text-3xl font-semibold text-text">
-          Version {version.major}.{version.minor}
-        </h1>
-        <p className="mt-2 text-text/70">{version.changeNote}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-3xl font-semibold text-text">
+              Version {version.major}.{version.minor}
+            </h1>
+            <p className="mt-2 text-text/70">{version.changeNote}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/api/versions/${versionId}/export/pdf`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              PDF
+            </Link>
+            <Link
+              href={`/api/versions/${versionId}/export/docx`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              DOCX
+            </Link>
+            <Link
+              href={`/api/versions/${versionId}/export/xlsx`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              XLSX
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-6">
