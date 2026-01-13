@@ -156,12 +156,18 @@ export default async function ProjectDetailPage({
                 <span className="font-medium">Rationale:</span>{" "}
                 {currentVersion.rationale}
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-4">
                 <Link
                   href={`/app/projects/${projectId}/versions/${currentVersion.id}`}
                   className="text-accent hover:underline"
                 >
                   View full version →
+                </Link>
+                <Link
+                  href={`/app/projects/${projectId}/versions`}
+                  className="text-accent hover:underline"
+                >
+                  View all versions →
                 </Link>
               </div>
             </div>

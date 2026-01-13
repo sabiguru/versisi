@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateProposalDetails, submitProposalForApproval } from "@/lib/proposal-actions";
+import { updateProposalDetails, submitProposalForApproval, withdrawProposal } from "@/lib/proposal-actions";
 import { ProposalStatus, ImpactLevel, RiskLevel } from "@prisma/client";
 import { Send, Save } from "lucide-react";
 
@@ -77,7 +77,25 @@ export function ProposalHeader({
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!confirm("Withdraw this proposal? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await withdrawProposal(proposalId);
+      router.push(`/app/projects/${projectId}`);
+      router.refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to withdraw");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isDraft = status === "DRAFT";
+  const canWithdraw = ["DRAFT", "INTERNAL_REVIEW", "AWAITING_APPROVAL"].includes(status);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
@@ -250,6 +268,19 @@ export function ProposalHeader({
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* Withdraw Button */}
+        {canWithdraw && (
+          <div className="pt-2">
+            <button
+              onClick={handleWithdraw}
+              disabled={isLoading}
+              className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+            >
+              Withdraw Proposal
+            </button>
           </div>
         )}
       </div>
