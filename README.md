@@ -57,6 +57,10 @@ Versisi is a collaborative platform that streamlines project scope management, c
 - **Document Generation**: PDFKit for PDF exports, ExcelJS for spreadsheets, DOCX for Word documents
 - **Language**: TypeScript
 
+## Important Note on Test Data
+
+This repository contains **only fictional test data** for development and demonstration purposes. All client accounts, user records, signatures, and IP addresses in the database are synthetic and created solely for testing the application's features. No real customer data, personal information, or production records are included in this repository.
+
 ## Getting Started
 
 ### Prerequisites
@@ -69,7 +73,7 @@ Versisi is a collaborative platform that streamlines project scope management, c
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/sabiguru/versisi.git
 cd versisi
 ```
 
