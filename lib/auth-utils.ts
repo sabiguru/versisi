@@ -23,6 +23,13 @@ export async function comparePassword(
 
 const TOKEN_SECRET = process.env.AUTH_SECRET;
 
+if (!TOKEN_SECRET) {
+  throw new Error(
+    "AUTH_SECRET environment variable is required for portal token signing. " +
+    "Please configure it in your .env file."
+  );
+}
+
 export interface PortalTokenPayload {
   type: "approval" | "invite" | "portal-access";
   clientUserId?: string;

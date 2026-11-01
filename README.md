@@ -83,12 +83,14 @@ npm install
 ```
 
 3. Set up environment variables:
-Create a `.env` file in the root directory with the following variables:
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/versisi"
-AUTH_SECRET="your-secret-key"
-AUTH_URL="http://localhost:3000"
-RESEND_API_KEY="your-resend-api-key"
+Copy `.env.example` to `.env` and configure your environment variables:
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your actual values. **Important:** `AUTH_SECRET` is required and must be a secure random string. Generate one with:
+```bash
+openssl rand -base64 32
 ```
 
 4. Run database migrations:
