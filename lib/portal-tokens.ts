@@ -10,7 +10,7 @@ import { prisma } from "./prisma";
 
 const TOKEN_SECRET = process.env.PORTAL_TOKEN_SECRET;
 
-if (\!TOKEN_SECRET) {
+if (!TOKEN_SECRET) {
   throw new Error(
     "PORTAL_TOKEN_SECRET environment variable is required for portal token signing. " +
     "Please configure it in your .env file."
